@@ -1,0 +1,149 @@
+services:
+  # dcms_backend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dev
+
+  #   container_name: dcms_backend_api
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - CHOKIDAR_USEPOLLING=true
+  #     - CHOKIDAR_INTERVAL=100
+  #   ports:
+  #     - '${PORT:-3000}:3000'
+  #   volumes:
+  #     - .:/app
+  #     - api_node_modules:/app/node_modules
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   init: true
+  #   stop_grace_period: 30s
+  #   networks:
+  #     - dcms_backend
+  #   healthcheck:
+  #     test:
+  #       [
+  #         'CMD',
+  #         'node',
+  #         '-e',
+  #         "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+  #       ]
+  #     interval: 30s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 20s
+
+  # POSTGRESQL
+  postgres:
+    image: postgres:18-alpine
+
+    container_name: dcms_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dcms}
+
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - dcms_backend
+
+  # REDIS
+  redis:
+    image: redis:8-alpine
+    container_name: dcms_redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+    networks:
+      - dcms_backend
+
+  # PGADMIN
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dcms_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - '${PGADMIN_PORT:-5050}:80'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - dcms_backend
+
+  # REDISINSIGHT
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: dcms_redisinsight
+    restart: unless-stopped
+    ports:
+      - '${REDISINSIGHT_PORT:-5540}:5540'
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - dcms_backend
+
+# VOLUMES
+volumes:
+  api_node_modules:
+    name: dcms_api_node_modules
+
+  postgres_data:
+    name: dcms_postgres_data
+
+  redis_data:
+    name: dcms_redis_data
+
+  pgadmin_data:
+    name: dcms_pgadmin_data
+
+  redisinsight_data:
+    name: dcms_redisinsight_data
+
+# NETWORK
+networks:
+  dcms_backend:
+    name: dcms_backend
+    driver: bridge
