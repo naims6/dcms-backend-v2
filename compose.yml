@@ -1,4 +1,5 @@
 services:
+  # run with bind mount for development
   # dcms_backend:
   #   build:
   #     context: .
