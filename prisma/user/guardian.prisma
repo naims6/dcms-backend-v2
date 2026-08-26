@@ -12,10 +12,4 @@ model Guardian {
   address    String?
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([studentId])
-  @@index([relationship])
 }
