@@ -4,7 +4,6 @@ import {
   ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
-// import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
 
