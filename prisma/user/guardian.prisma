@@ -1,0 +1,21 @@
+model Guardian {
+  id String @id @default(uuid())
+
+  studentId String
+
+  name         String
+  relationship GuardianRelationship
+
+  phone      String?
+  email      String?
+  occupation String?
+  address    String?
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([relationship])
+}

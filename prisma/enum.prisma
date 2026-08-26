@@ -1,0 +1,37 @@
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  EXPELLED
+}
+
+enum TeacherStatus {
+  ACTIVE
+  INACTIVE
+  RESIGNED
+}
+
+enum GuardianRelationship {
+  FATHER
+  MOTHER
+  OTHER
+}
+
+enum NoticeAudience {
+  ALL
+  STUDENTS
+  TEACHERS
+  ADMINS
+}
