@@ -16,6 +16,18 @@ CREATE TYPE "GuardianRelationship" AS ENUM ('FATHER', 'MOTHER', 'OTHER');
 -- CreateEnum
 CREATE TYPE "NoticeAudience" AS ENUM ('ALL', 'STUDENTS', 'TEACHERS', 'ADMINS');
 
+-- CreateEnum
+CREATE TYPE "AddressType" AS ENUM ('PERMANENT', 'PREVIOUS');
+
+-- CreateTable
+CREATE TABLE "Class" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "numericValue" INTEGER NOT NULL,
+
+    CONSTRAINT "Class_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable
 CREATE TABLE "Notice" (
     "id" TEXT NOT NULL,
@@ -69,6 +81,22 @@ CREATE TABLE "UserRole" (
 );
 
 -- CreateTable
+CREATE TABLE "Address" (
+    "id" TEXT NOT NULL,
+    "type" "AddressType" NOT NULL,
+    "street" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "state" TEXT,
+    "postalCode" TEXT,
+    "country" TEXT,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Address_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Guardian" (
     "id" TEXT NOT NULL,
     "studentId" TEXT NOT NULL,
@@ -89,7 +117,7 @@ CREATE TABLE "Student" (
     "studentId" TEXT NOT NULL,
     "dateOfBirth" TIMESTAMP(3),
     "gender" "Gender",
-    "className" TEXT,
+    "classId" TEXT,
     "rollNumber" INTEGER,
     "status" "StudentStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -128,6 +156,12 @@ CREATE TABLE "User" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Class_name_key" ON "Class"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Class_numericValue_key" ON "Class"("numericValue");
+
+-- CreateIndex
 CREATE INDEX "Notice_audience_idx" ON "Notice"("audience");
 
 -- CreateIndex
@@ -146,6 +180,12 @@ CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 CREATE UNIQUE INDEX "UserRole_userId_roleId_key" ON "UserRole"("userId", "roleId");
 
 -- CreateIndex
+CREATE INDEX "Address_userId_idx" ON "Address"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Address_userId_type_key" ON "Address"("userId", "type");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Student_userId_key" ON "Student"("userId");
 
 -- CreateIndex
@@ -155,7 +195,7 @@ CREATE UNIQUE INDEX "Student_studentId_key" ON "Student"("studentId");
 CREATE INDEX "Student_status_idx" ON "Student"("status");
 
 -- CreateIndex
-CREATE INDEX "Student_className_idx" ON "Student"("className");
+CREATE INDEX "Student_classId_idx" ON "Student"("classId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Teacher_userId_key" ON "Teacher"("userId");
@@ -185,7 +225,13 @@ ALTER TABLE "UserRole" ADD CONSTRAINT "UserRole_userId_fkey" FOREIGN KEY ("userI
 ALTER TABLE "UserRole" ADD CONSTRAINT "UserRole_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Address" ADD CONSTRAINT "Address_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Guardian" ADD CONSTRAINT "Guardian_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Student" ADD CONSTRAINT "Student_classId_fkey" FOREIGN KEY ("classId") REFERENCES "Class"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Student" ADD CONSTRAINT "Student_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

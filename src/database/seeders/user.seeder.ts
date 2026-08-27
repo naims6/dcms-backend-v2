@@ -11,6 +11,16 @@ const users = [
     password: 'admin123',
     phone: '+1000000000',
     role: 'ADMIN',
+    addresses: [
+      {
+        type: 'PERMANENT' as const,
+        street: '123 Admin St',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        postalCode: '400001',
+        country: 'India',
+      },
+    ],
   },
   {
     firstName: 'John',
@@ -23,6 +33,24 @@ const users = [
       employeeId: 'EMP001',
       gender: 'MALE' as const,
     },
+    addresses: [
+      {
+        type: 'PERMANENT' as const,
+        street: '456 Teacher Ave',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        postalCode: '400002',
+        country: 'India',
+      },
+      {
+        type: 'PREVIOUS' as const,
+        street: '101 Old Teacher Ln',
+        city: 'Pune',
+        state: 'Maharashtra',
+        postalCode: '411001',
+        country: 'India',
+      },
+    ],
   },
   {
     firstName: 'Jane',
@@ -34,9 +62,27 @@ const users = [
     student: {
       studentId: 'STU001',
       gender: 'FEMALE' as const,
-      className: '10-A',
+      className: '10',
       rollNumber: 1,
     },
+    addresses: [
+      {
+        type: 'PERMANENT' as const,
+        street: '789 Student Rd',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        postalCode: '400003',
+        country: 'India',
+      },
+      {
+        type: 'PREVIOUS' as const,
+        street: '202 Old Student Blvd',
+        city: 'Nashik',
+        state: 'Maharashtra',
+        postalCode: '422001',
+        country: 'India',
+      },
+    ],
   },
 ];
 
@@ -44,7 +90,7 @@ export async function seedUsers(prisma: PrismaClient) {
   console.log('Seeding users...');
 
   for (const userData of users) {
-    const { role: roleName, teacher, student, ...data } = userData;
+    const { role: roleName, teacher, student, addresses, ...data } = userData;
 
     const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
 
@@ -81,6 +127,16 @@ export async function seedUsers(prisma: PrismaClient) {
     }
 
     if (student) {
+      const classRecord = await prisma.class.findFirst({
+        where: { name: student.className },
+      });
+
+      if (!classRecord) {
+        throw new Error(
+          `Class "${student.className}" not found. Run class seeder first.`,
+        );
+      }
+
       await prisma.student.upsert({
         where: { userId: user.id },
         update: {},
@@ -88,10 +144,28 @@ export async function seedUsers(prisma: PrismaClient) {
           userId: user.id,
           studentId: student.studentId,
           gender: student.gender,
-          className: student.className,
+          classId: classRecord.id,
           rollNumber: student.rollNumber,
         },
       });
+    }
+
+    if (addresses) {
+      for (const addr of addresses) {
+        await prisma.address.upsert({
+          where: { userId_type: { userId: user.id, type: addr.type } },
+          update: {},
+          create: {
+            userId: user.id,
+            type: addr.type,
+            street: addr.street,
+            city: addr.city,
+            state: addr.state,
+            postalCode: addr.postalCode,
+            country: addr.country,
+          },
+        });
+      }
     }
   }
 

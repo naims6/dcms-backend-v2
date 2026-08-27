@@ -19,6 +19,6 @@ model User {
 
   student Student?
   teacher Teacher?
-
+  address Address[]
   createdNotices Notice[] @relation("NoticeCreatedBy")
 }

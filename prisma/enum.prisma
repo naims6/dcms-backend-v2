@@ -35,3 +35,8 @@ enum NoticeAudience {
   TEACHERS
   ADMINS
 }
+
+enum AddressType {
+  PERMANENT
+  PREVIOUS
+}

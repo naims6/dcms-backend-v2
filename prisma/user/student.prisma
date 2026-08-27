@@ -10,9 +10,11 @@ model Student {
   dateOfBirth DateTime?
   gender      Gender?
 
-  className  String?
+  // Academic relations
+  classId   String?
   rollNumber Int?
 
+  class   Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
   status StudentStatus @default(ACTIVE)
 
   // Relations
@@ -24,5 +26,5 @@ model Student {
   updatedAt DateTime @updatedAt
 
   @@index([status])
-  @@index([className])
+  @@index([classId])
 }

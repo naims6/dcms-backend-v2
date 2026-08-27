@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { seedPermissions } from './seeders/permission.seeder.js';
 import { seedRoles } from './seeders/role.seeder.js';
+import { seedClasses } from './seeders/class.seeder.js';
 import { seedUsers } from './seeders/user.seeder.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -16,6 +17,7 @@ export class SeedService {
     try {
       await seedPermissions(this.prisma);
       await seedRoles(this.prisma);
+      await seedClasses(this.prisma);
       await seedUsers(this.prisma);
 
       this.logger.log('Database seed completed successfully');
