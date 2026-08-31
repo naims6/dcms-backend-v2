@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { UserPayload } from '../dto/auth-response.dto.js';
+import { env } from '../../../config/env.config.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -35,9 +36,10 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload: UserPayload = await this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
+      const payload: UserPayload =
+        await this.jwtService.verifyAsync<UserPayload>(token, {
+          secret: env.jwtSecret,
+        });
 
       request.user = payload;
     } catch {

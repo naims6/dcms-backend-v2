@@ -1,8 +1,8 @@
-import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter.js';
+import { env } from './config/env.config.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,6 +19,6 @@ async function bootstrap() {
 
   app.useGlobalFilters(new PrismaClientExceptionFilter());
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(env.port);
 }
 await bootstrap();
