@@ -1,0 +1,10 @@
+model Role {
+  id String @id @default(uuid())
+
+  name        String  @unique
+  description String?
+
+  // Relations
+  userRoles   UserRole[]
+  permissions RolePermission[]
+}
