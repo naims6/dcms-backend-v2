@@ -9,7 +9,19 @@ export interface UserPayload {
   roles: string[];
 }
 
-export class LoginResponseDto {
+export class AuthResponseDto {
   accessToken!: string;
+  refreshToken!: string;
   user!: UserPayload;
+}
+
+export class LoginResponseDto extends AuthResponseDto {}
+
+export class TokenRefreshResponseDto {
+  accessToken!: string;
+  refreshToken!: string;
+}
+
+export class MessageResponseDto {
+  message!: string;
 }
