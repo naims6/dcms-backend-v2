@@ -11,9 +11,9 @@ import { env } from '../../config/env.config.js';
   imports: [
     PrismaModule,
     JwtModule.register({
-      secret: env.jwtSecret,
+      secret: env.jwtAccessSecret,
       signOptions: {
-        expiresIn: env.jwtExpiresIn as unknown as number,
+        expiresIn: env.jwtAccessExpiresIn as unknown as number,
       },
     }),
   ],
