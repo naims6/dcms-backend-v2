@@ -11,20 +11,13 @@ import {
   RESPONSE_MESSAGE_KEY,
   BYPASS_RESPONSE_TRANSFORM_KEY,
 } from '../decorators/response-message.decorator.js';
-import { ApiResponse } from '../interfaces/response.interface.js';
 import { Response } from 'express';
 
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<
-  T,
-  ApiResponse<T>
-> {
+export class ResponseInterceptor implements NestInterceptor {
   constructor(private readonly reflector: Reflector) {}
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<ApiResponse<T>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const isBypassed = this.reflector.getAllAndOverride<boolean>(
       BYPASS_RESPONSE_TRANSFORM_KEY,
       [context.getHandler(), context.getClass()],
@@ -36,8 +29,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<
 
     return next.handle().pipe(
       map((payload: unknown) => {
-        const httpContext = context.switchToHttp();
-        const response: Response = httpContext.getResponse();
+        const response: Response = context.switchToHttp().getResponse();
         const statusCode = response.statusCode;
 
         const decoratorMessage = this.reflector.getAllAndOverride<string>(
@@ -45,47 +37,42 @@ export class ResponseInterceptor<T> implements NestInterceptor<
           [context.getHandler(), context.getClass()],
         );
 
-        let data = payload;
-        let meta = undefined;
-        let customMessage: string | undefined = undefined;
+        let data: unknown = payload;
+        let meta: Record<string, unknown> | undefined = undefined;
 
-        if (
-          payload !== null &&
-          typeof payload === 'object' &&
-          !Array.isArray(payload) &&
-          ('data' in payload || 'meta' in payload)
-        ) {
-          data = payload.data !== undefined ? payload.data : null;
-          meta = payload.meta;
-          if (typeof payload.message === 'string') {
-            customMessage = payload.message;
+        // If the payload is an object with a `data` property, we treat it as a structured response and extract `data` and `meta` accordingly.
+        if (this.isRecord(payload)) {
+          if ('data' in payload) {
+            data = payload.data;
+            if (this.isRecord(payload.meta)) {
+              meta = payload.meta;
+            }
           }
         }
 
-        const message =
-          customMessage ||
-          decoratorMessage ||
-          this.getDefaultMessageByStatus(statusCode);
+        const message = decoratorMessage || this.getDefaultMessage(statusCode);
 
         return {
           success: true,
           statusCode,
           message,
           data,
-          ...(meta !== undefined ? { meta } : {}),
+          ...(meta ? { meta } : {}),
         };
       }),
     );
   }
 
-  private getDefaultMessageByStatus(statusCode: number): string {
+  private isRecord(val: unknown): val is Record<string, unknown> {
+    return typeof val === 'object' && val !== null && !Array.isArray(val);
+  }
+
+  private getDefaultMessage(statusCode: number): string {
     switch (statusCode) {
       case 201:
         return 'Resource created successfully';
-      case 202:
-        return 'Request accepted successfully';
       case 204:
-        return 'Request processed successfully with no content';
+        return 'Resource processed successfully';
       default:
         return 'Operation completed successfully';
     }
