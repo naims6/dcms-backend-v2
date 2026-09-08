@@ -1,19 +1,47 @@
 import 'dotenv/config';
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
+  PORT: z.coerce.number().default(3000),
+
+  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+
+  JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+
+  JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+});
+
+export type EnvConfig = z.infer<typeof envSchema>;
+
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  const errorDetails: unknown = parsed.error.format();
+  console.error(
+    '❌ Invalid environment variables:',
+    JSON.stringify(errorDetails, null, 2),
+  );
+  throw new Error('Invalid environment variables');
+}
+
+const configData: EnvConfig = parsed.data;
 
 export const env = {
-  nodeEnv: process.env.NODE_ENV ?? 'development',
-  isDev: (process.env.NODE_ENV ?? 'development') === 'development',
-  port: parseInt(process.env.PORT ?? '3000', 10),
+  nodeEnv: configData.NODE_ENV,
+  isDev: configData.NODE_ENV === 'development',
+  isProd: configData.NODE_ENV === 'production',
+  port: configData.PORT,
 
-  // Database
-  databaseUrl: process.env.DATABASE_URL ?? '',
+  databaseUrl: configData.DATABASE_URL,
 
-  // JWT Access Token
-  jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'default_access_secret_key',
-  jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
+  jwtAccessSecret: configData.JWT_ACCESS_SECRET,
+  jwtAccessExpiresIn: configData.JWT_ACCESS_EXPIRES_IN,
 
-  // JWT Refresh Token
-  jwtRefreshSecret:
-    process.env.JWT_REFRESH_SECRET ?? 'default_refresh_secret_key',
-  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+  jwtRefreshSecret: configData.JWT_REFRESH_SECRET,
+  jwtRefreshExpiresIn: configData.JWT_REFRESH_EXPIRES_IN,
 };
