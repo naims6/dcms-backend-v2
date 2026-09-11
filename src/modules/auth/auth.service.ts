@@ -153,7 +153,7 @@ export class AuthService {
     const { refreshToken } = refreshTokenDto;
 
     // 1. Verify JWT refresh token signature
-    let payload: { sub: string; email: string; roles: string[] };
+    let payload: { sub: string; id?: string; email: string; roles: string[] };
     try {
       payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: env.jwtRefreshSecret,
@@ -162,10 +162,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    const userId = payload.id || payload.sub;
+
     // 2. Fetch user active refresh tokens
     const activeTokens = await this.prisma.refreshToken.findMany({
       where: {
-        userId: payload.sub,
+        userId,
         isRevoked: false,
         expiresAt: { gt: new Date() },
       },
@@ -184,7 +186,7 @@ export class AuthService {
     if (!matchingTokenRecord) {
       // Re-use attempt or revoked token: revoke all tokens for this user for security
       await this.prisma.refreshToken.updateMany({
-        where: { userId: payload.sub },
+        where: { userId },
         data: { isRevoked: true },
       });
       throw new UnauthorizedException(
@@ -200,11 +202,11 @@ export class AuthService {
 
     // 5. Generate and store new token pair
     const tokens = await this.generateTokenPair(
-      payload.sub,
+      userId,
       payload.email,
       payload.roles,
     );
-    await this.storeRefreshToken(payload.sub, tokens.refreshToken);
+    await this.storeRefreshToken(userId, tokens.refreshToken);
 
     return tokens;
   }
@@ -296,7 +298,7 @@ export class AuthService {
     email: string,
     roles: string[],
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = { sub: userId, email, roles };
+    const payload = { sub: userId, id: userId, email, roles };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
