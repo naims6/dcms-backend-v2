@@ -11,8 +11,8 @@ import {
 import type { Request, Response } from 'express';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { AuthService } from './auth.service.js';
-import { CurrentUser } from './decorators/current-user.decorator.js';
-import { Public } from './decorators/public.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import {
   AuthResponseDto,
   MessageResponseDto,
