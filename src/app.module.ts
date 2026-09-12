@@ -9,6 +9,7 @@ import { RedisModule } from './redis/redis.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 
 @Module({
@@ -24,7 +25,12 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
     },
-    // NOTE: JwtAuthGuard is registered first in AuthModule so request.user
+    // JwtAuthGuard MUST be registered before PermissionsGuard so that
+    // request.user is populated before the permissions check runs.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
