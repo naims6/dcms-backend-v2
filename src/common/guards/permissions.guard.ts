@@ -74,11 +74,13 @@ export class PermissionsGuard implements CanActivate {
     // ── DB fallback ──
     const userRoles = await this.prisma.userRole.findMany({
       where: { userId },
-      include: {
+      select: {
         role: {
-          include: {
+          select: {
             permissions: {
-              include: { permission: true },
+              select: {
+                permission: { select: { name: true } },
+              },
             },
           },
         },

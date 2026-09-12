@@ -49,9 +49,14 @@ export class RbacService implements OnModuleInit {
 
   async findAllRoles() {
     return this.prisma.role.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
         permissions: {
-          include: { permission: true },
+          select: {
+            permission: { select: { id: true, name: true, description: true } },
+          },
         },
         _count: { select: { userRoles: true } },
       },
@@ -62,9 +67,14 @@ export class RbacService implements OnModuleInit {
   async findRoleById(id: string) {
     const role = await this.prisma.role.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
         permissions: {
-          include: { permission: true },
+          select: {
+            permission: { select: { id: true, name: true, description: true } },
+          },
         },
         _count: { select: { userRoles: true } },
       },
@@ -95,8 +105,15 @@ export class RbacService implements OnModuleInit {
           create: permissions.map((p) => ({ permissionId: p.id })),
         },
       },
-      include: {
-        permissions: { include: { permission: true } },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        permissions: {
+          select: {
+            permission: { select: { id: true, name: true, description: true } },
+          },
+        },
       },
     });
   }
@@ -123,8 +140,17 @@ export class RbacService implements OnModuleInit {
               create: newPermissions.map((p) => ({ permissionId: p.id })),
             },
           },
-          include: {
-            permissions: { include: { permission: true } },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            permissions: {
+              select: {
+                permission: {
+                  select: { id: true, name: true, description: true },
+                },
+              },
+            },
           },
         });
       });
@@ -142,8 +168,15 @@ export class RbacService implements OnModuleInit {
         ...(name && { name }),
         ...(description !== undefined && { description }),
       },
-      include: {
-        permissions: { include: { permission: true } },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        permissions: {
+          select: {
+            permission: { select: { id: true, name: true, description: true } },
+          },
+        },
       },
     });
   }
