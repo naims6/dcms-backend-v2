@@ -9,11 +9,23 @@ import { RedisModule } from './redis/redis.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { RbacModule } from './modules/rbac/rbac.module.js';
+import { UserModule } from './modules/user/user.module.js';
+import { StudentModule } from './modules/student/student.module.js';
+import { TeacherModule } from './modules/teacher/teacher.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 
 @Module({
-  imports: [PrismaModule, RedisModule, AuthModule, MailModule, RbacModule],
+  imports: [
+    PrismaModule,
+    RedisModule,
+    AuthModule,
+    MailModule,
+    RbacModule,
+    UserModule,
+    StudentModule,
+    TeacherModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,
