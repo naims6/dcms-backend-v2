@@ -9,9 +9,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 import { AuthService } from './auth.service.js';
-import { CurrentUser } from './decorators/current-user.decorator.js';
-import { Public } from './decorators/public.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import {
   AuthResponseDto,
   MessageResponseDto,
@@ -31,6 +32,7 @@ export class AuthController {
    */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('User registered successfully')
   async register(
     @Body() registerDto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -46,6 +48,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('User logged in successfully')
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -61,6 +64,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Tokens refreshed successfully')
   async refreshToken(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -83,6 +87,7 @@ export class AuthController {
    */
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Password changed successfully')
   async changePassword(
     @CurrentUser('id') userId: string,
     @Body() changePasswordDto: ChangePasswordDto,
@@ -95,6 +100,7 @@ export class AuthController {
    */
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @ResponseMessage('User logged out successfully')
   async logout(
     @CurrentUser('id') userId: string,
     @Req() req: Request,

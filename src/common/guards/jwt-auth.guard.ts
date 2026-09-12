@@ -8,8 +8,8 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
-import { UserPayload } from '../dto/auth-response.dto.js';
-import { env } from '../../../config/env.config.js';
+import { UserPayload } from '../../modules/auth/dto/auth-response.dto.js';
+import { env } from '../../config/env.config.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
