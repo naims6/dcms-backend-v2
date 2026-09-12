@@ -27,18 +27,18 @@ services:
   #       condition: service_healthy
   #   networks:
   #     - dcms_backend
-    # healthcheck:
-    #   test:
-    #     [
-    #       'CMD',
-    #       'node',
-    #       '-e',
-    #       "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
-    #     ]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 3
-    #   start_period: 20s
+  # healthcheck:
+  #   test:
+  #     [
+  #       'CMD',
+  #       'node',
+  #       '-e',
+  #       "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+  #     ]
+  #   interval: 30s
+  #   timeout: 5s
+  #   retries: 3
+  #   start_period: 20s
 
   # POSTGRESQL
   postgres:
@@ -76,6 +76,8 @@ services:
       - redis-server
       - --appendonly
       - 'yes'
+      - --requirepass
+      - ${REDIS_PASSWORD}
     ports:
       - '${REDIS_PORT:-6379}:6379'
 
