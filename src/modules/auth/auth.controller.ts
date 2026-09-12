@@ -13,6 +13,8 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 import { AuthService } from './auth.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
 import {
   AuthResponseDto,
   MessageResponseDto,
@@ -30,6 +32,7 @@ export class AuthController {
   /**
    * User creation / Registration (Protected: require admin / active user session).
    */
+  @RequirePermissions(PERMISSIONS.USERS_CREATE)
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ResponseMessage('User registered successfully')
