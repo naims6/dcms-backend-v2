@@ -81,10 +81,15 @@ export class AuthService {
           create: userRoleConnect,
         },
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
         userRoles: {
-          include: {
-            role: true,
+          select: {
+            role: { select: { name: true } },
           },
         },
       },
@@ -124,10 +129,16 @@ export class AuthService {
     // 1. Fetch user with roles
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        firstName: true,
+        lastName: true,
+        status: true,
         userRoles: {
-          include: {
-            role: true,
+          select: {
+            role: { select: { name: true } },
           },
         },
       },
