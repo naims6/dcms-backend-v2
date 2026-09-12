@@ -56,6 +56,7 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 tsconfig.build.tsbuildinfo
+tsconfig.tsbuildinfo
 
 /src/generated/prisma
 /src/generated

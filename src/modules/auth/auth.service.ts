@@ -23,14 +23,7 @@ import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
-
-interface JwtRefreshPayload {
-  sub: string;
-  id?: string;
-  tokenId: string;
-  email: string;
-  roles: string[];
-}
+import { JwtRefreshPayload } from './auth.interface.js';
 
 @Injectable()
 export class AuthService {
