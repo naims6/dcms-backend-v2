@@ -18,6 +18,11 @@ const envSchema = z.object({
 
   JWT_REFRESH_SECRET: z.string().min(1, 'JWT_REFRESH_SECRET is required'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+
+  EMAIL_PROVIDER: z.enum(['brevo', 'console']).default('brevo'),
+  BREVO_API_KEY: z.string().optional(),
+  SENDER_EMAIL: z.string().default('noreply@dcms.com'),
+  SENDER_NAME: z.string().default('DCMS'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -54,4 +59,11 @@ export const env = {
 
   jwtRefreshSecret: configData.JWT_REFRESH_SECRET,
   jwtRefreshExpiresIn: configData.JWT_REFRESH_EXPIRES_IN,
+
+  mail: {
+    provider: configData.EMAIL_PROVIDER,
+    brevoApiKey: configData.BREVO_API_KEY,
+    senderEmail: configData.SENDER_EMAIL,
+    senderName: configData.SENDER_NAME,
+  },
 };

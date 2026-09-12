@@ -7,9 +7,10 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter.
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { MailModule } from './modules/mail/mail.module.js';
 
 @Module({
-  imports: [PrismaModule, RedisModule, AuthModule],
+  imports: [PrismaModule, RedisModule, AuthModule, MailModule],
   controllers: [AppController],
   providers: [
     AppService,

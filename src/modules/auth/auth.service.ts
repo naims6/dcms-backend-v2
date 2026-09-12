@@ -24,6 +24,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { JwtRefreshPayload } from './auth.interface.js';
+import { MailService } from '../mail/mail.service.js';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
@@ -86,6 +88,13 @@ export class AuthService {
           },
         },
       },
+    });
+
+    // Send welcome / account creation email asynchronously
+    void this.mailService.sendUserCreatedEmail({
+      email: user.email,
+      firstName: user.firstName ?? undefined,
+      lastName: user.lastName ?? undefined,
     });
 
     const roles = user.userRoles.map((ur) => ur.role.name);
