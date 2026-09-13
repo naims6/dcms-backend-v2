@@ -15,6 +15,10 @@ const STUDENT_DETAIL_SELECT = {
   rollNumber: true,
   dateOfBirth: true,
   gender: true,
+  bloodGroup: true,
+  religion: true,
+  admissionDate: true,
+  emergencyContact: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -25,6 +29,8 @@ const STUDENT_DETAIL_SELECT = {
       lastName: true,
       email: true,
       phone: true,
+      imageUrl: true,
+      imageKey: true,
       status: true,
       userRoles: {
         select: { role: { select: { id: true, name: true } } },
@@ -66,7 +72,7 @@ export class StudentService {
     ]);
 
     return {
-      data: students.map(this.normalizeStudent),
+      data: students.map((s) => this.normalizeStudent(s)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -100,13 +106,14 @@ export class StudentService {
       throw new BadRequestException('No fields provided to update');
     }
 
-    const { dateOfBirth, ...rest } = dto;
+    const { dateOfBirth, admissionDate, ...rest } = dto;
 
     const student = await this.prisma.student.update({
       where: { id },
       data: {
         ...rest,
         ...(dateOfBirth && { dateOfBirth: new Date(dateOfBirth) }),
+        ...(admissionDate && { admissionDate: new Date(admissionDate) }),
       },
       select: STUDENT_DETAIL_SELECT,
     });
@@ -134,6 +141,10 @@ export class StudentService {
     rollNumber: number | null;
     dateOfBirth: Date | null;
     gender: string | null;
+    bloodGroup: string | null;
+    religion: string | null;
+    admissionDate: Date | null;
+    emergencyContact: string | null;
     status: string;
     createdAt: Date;
     updatedAt: Date;
@@ -143,6 +154,8 @@ export class StudentService {
       lastName: string | null;
       email: string;
       phone: string | null;
+      imageUrl: string | null;
+      imageKey: string | null;
       status: string;
       userRoles: { role: { id: string; name: string } }[];
     };

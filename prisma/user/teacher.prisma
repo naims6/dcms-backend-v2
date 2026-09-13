@@ -9,6 +9,14 @@ model Teacher {
 
   dateOfBirth DateTime?
   gender      Gender?
+  bloodGroup  BloodGroup?
+
+  designation      String?
+  qualification    String?
+  department       String?
+  joiningDate      DateTime?
+  experienceYears  Int?
+  emergencyContact String?
 
   status TeacherStatus @default(ACTIVE)
 

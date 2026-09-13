@@ -13,6 +13,13 @@ const TEACHER_DETAIL_SELECT = {
   employeeId: true,
   dateOfBirth: true,
   gender: true,
+  bloodGroup: true,
+  designation: true,
+  qualification: true,
+  department: true,
+  joiningDate: true,
+  experienceYears: true,
+  emergencyContact: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -23,6 +30,8 @@ const TEACHER_DETAIL_SELECT = {
       lastName: true,
       email: true,
       phone: true,
+      imageUrl: true,
+      imageKey: true,
       status: true,
       userRoles: {
         select: { role: { select: { id: true, name: true } } },
@@ -58,7 +67,7 @@ export class TeacherService {
     ]);
 
     return {
-      data: teachers.map(this.normalizeTeacher),
+      data: teachers.map((t) => this.normalizeTeacher(t)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -92,13 +101,14 @@ export class TeacherService {
       throw new BadRequestException('No fields provided to update');
     }
 
-    const { dateOfBirth, ...rest } = dto;
+    const { dateOfBirth, joiningDate, ...rest } = dto;
 
     const teacher = await this.prisma.teacher.update({
       where: { id },
       data: {
         ...rest,
         ...(dateOfBirth && { dateOfBirth: new Date(dateOfBirth) }),
+        ...(joiningDate && { joiningDate: new Date(joiningDate) }),
       },
       select: TEACHER_DETAIL_SELECT,
     });
@@ -124,6 +134,13 @@ export class TeacherService {
     employeeId: string;
     dateOfBirth: Date | null;
     gender: string | null;
+    bloodGroup: string | null;
+    designation: string | null;
+    qualification: string | null;
+    department: string | null;
+    joiningDate: Date | null;
+    experienceYears: number | null;
+    emergencyContact: string | null;
     status: string;
     createdAt: Date;
     updatedAt: Date;
@@ -133,6 +150,8 @@ export class TeacherService {
       lastName: string | null;
       email: string;
       phone: string | null;
+      imageUrl: string | null;
+      imageKey: string | null;
       status: string;
       userRoles: { role: { id: string; name: string } }[];
     };

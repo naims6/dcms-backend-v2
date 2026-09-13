@@ -9,6 +9,11 @@ model Student {
 
   dateOfBirth DateTime?
   gender      Gender?
+  bloodGroup  BloodGroup?
+  religion    String?
+
+  admissionDate    DateTime?
+  emergencyContact String?
 
   // Academic relations
   classId   String?

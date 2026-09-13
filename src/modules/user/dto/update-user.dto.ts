@@ -24,4 +24,12 @@ export class UpdateUserDto {
   @MaxLength(20)
   @Transform(({ value }: { value?: string }) => value?.trim())
   phone?: string;
+
+  @IsOptional()
+  @IsString({ message: 'imageUrl must be a string' })
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString({ message: 'imageKey must be a string' })
+  imageKey?: string;
 }

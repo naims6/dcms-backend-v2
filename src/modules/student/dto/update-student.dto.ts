@@ -9,7 +9,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Gender } from '../../../generated/prisma/client.js';
+import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
 
 export class UpdateStudentDto {
   @IsOptional()
@@ -31,6 +31,29 @@ export class UpdateStudentDto {
     message: `gender must be one of: ${Object.values(Gender).join(', ')}`,
   })
   gender?: Gender;
+
+  @IsOptional()
+  @IsEnum(BloodGroup, {
+    message: `bloodGroup must be one of: ${Object.values(BloodGroup).join(', ')}`,
+  })
+  bloodGroup?: BloodGroup;
+
+  @IsOptional()
+  @IsString({ message: 'religion must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  religion?: string;
+
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: 'admissionDate must be a valid ISO date string' },
+  )
+  admissionDate?: string;
+
+  @IsOptional()
+  @IsString({ message: 'emergencyContact must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  emergencyContact?: string;
 
   @IsOptional()
   @IsString()

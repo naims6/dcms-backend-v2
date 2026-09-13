@@ -11,6 +11,8 @@ import { UpdateUserDto } from './dto/update-user.dto.js';
 import { ChangeStatusDto } from './dto/change-status.dto.js';
 import { AssignRoleDto } from './dto/assign-role.dto.js';
 
+import { CloudinaryService } from '../../common/cloudinary/cloudinary.service.js';
+
 // ─── Reusable Prisma select shapes ───────────────────────────────────────────
 
 const USER_SUMMARY_SELECT = {
@@ -19,6 +21,8 @@ const USER_SUMMARY_SELECT = {
   lastName: true,
   email: true,
   phone: true,
+  imageUrl: true,
+  imageKey: true,
   status: true,
   createdAt: true,
   userRoles: {
@@ -57,6 +61,7 @@ export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -227,6 +232,36 @@ export class UserService {
     await this.redis.del(REDIS_KEYS.userPermissions(userId));
 
     return this.findById(userId);
+  }
+
+  /**
+   * Uploads or updates a user avatar image using Cloudinary.
+   */
+  async uploadAvatar(userId: string, fileBuffer: Buffer) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, imageKey: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User "${userId}" not found`);
+    }
+
+    // Delete existing avatar on Cloudinary if present
+    if (user.imageKey) {
+      await this.cloudinary.deleteImage(user.imageKey);
+    }
+
+    // Upload new image
+    const { url, key } = await this.cloudinary.uploadImage(
+      fileBuffer,
+      'dcms/avatars',
+    );
+
+    return this.updateUser(userId, {
+      imageUrl: url,
+      imageKey: key,
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
