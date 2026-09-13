@@ -27,6 +27,14 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  SSLCOMMERZ_STORE_ID: z.string().default('testbox'),
+  SSLCOMMERZ_STORE_PASSWORD: z.string().default('qwerty'),
+  SSLCOMMERZ_IS_SANDBOX: z
+    .string()
+    .default('true')
+    .transform((v) => v === 'true' || v === '1'),
+  SSLCOMMERZ_BASE_URL: z.string().default('http://localhost:3000'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -75,5 +83,12 @@ export const env = {
     cloudName: configData.CLOUDINARY_CLOUD_NAME,
     apiKey: configData.CLOUDINARY_API_KEY,
     apiSecret: configData.CLOUDINARY_API_SECRET,
+  },
+
+  sslcommerz: {
+    storeId: configData.SSLCOMMERZ_STORE_ID,
+    storePassword: configData.SSLCOMMERZ_STORE_PASSWORD,
+    isSandbox: configData.SSLCOMMERZ_IS_SANDBOX,
+    baseUrl: configData.SSLCOMMERZ_BASE_URL,
   },
 };

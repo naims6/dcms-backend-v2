@@ -37,6 +37,7 @@ enum NoticeAudience {
 }
 
 enum AddressType {
+  PRESENT
   PERMANENT
   PREVIOUS
 }
@@ -51,4 +52,36 @@ enum BloodGroup {
   O_POSITIVE
   O_NEGATIVE
 }
+
+enum ApplicationStatus {
+  PENDING_EMAIL_VERIFICATION
+  EMAIL_VERIFIED
+  PAYMENT_PENDING
+  SUBMITTED_FOR_REVIEW
+  ADMITTED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  VALIDATED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentPurpose {
+  ADMISSION_FEE
+  TUITION_FEE
+  EXAM_FEE
+  FINE
+  OTHER
+}
+
+enum PaymentProvider {
+  SSLCOMMERZ
+  BKASH
+  NAGAD
+  MANUAL
+}
+
 

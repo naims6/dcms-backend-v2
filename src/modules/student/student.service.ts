@@ -26,6 +26,17 @@ const STUDENT_DETAIL_SELECT = {
   status: true,
   createdAt: true,
   updatedAt: true,
+  guardians: {
+    select: {
+      id: true,
+      name: true,
+      relationship: true,
+      phone: true,
+      email: true,
+      occupation: true,
+      address: true,
+    },
+  },
   user: {
     select: {
       id: true,
@@ -105,10 +116,9 @@ export class StudentService {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Atomically creates a User (with STUDENT role) and associated Student profile.
-   * If an image file buffer is provided, it uploads it to Cloudinary automatically.
+   * Atomically creates a User (with STUDENT role), Student profile, and optional Guardians.
    */
-  async createStudent(dto: CreateStudentDto, fileBuffer?: Buffer) {
+  async createStudent(dto: CreateStudentDto) {
     // 1. Check uniqueness of user email
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -129,18 +139,9 @@ export class StudentService {
       );
     }
 
-    // 3. Upload avatar image to Cloudinary if file provided
-    let imageUrl = dto.imageUrl;
-    let imageKey = dto.imageKey;
-
-    if (fileBuffer) {
-      const uploaded = await this.cloudinary.uploadImage(
-        fileBuffer,
-        'dcms/avatars',
-      );
-      imageUrl = uploaded.url;
-      imageKey = uploaded.key;
-    }
+    // 3. Avatar URL / Key (if provided in payload)
+    const imageUrl = dto.imageUrl;
+    const imageKey = dto.imageKey;
 
     // 4. Hash initial password
     const hashedPassword = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
@@ -153,6 +154,7 @@ export class StudentService {
 
     // 6. Execute creation inside transaction
     const student = await this.prisma.$transaction(async (tx) => {
+      // 6a. Create User account
       const user = await tx.user.create({
         data: {
           firstName: dto.firstName,
@@ -170,6 +172,7 @@ export class StudentService {
         },
       });
 
+      // 6b. Create Student profile with Guardians in one operation
       return tx.student.create({
         data: {
           userId: user.id,
@@ -184,6 +187,19 @@ export class StudentService {
             ? new Date(dto.admissionDate)
             : undefined,
           emergencyContact: dto.emergencyContact,
+          ...(dto.guardians &&
+            dto.guardians.length > 0 && {
+              guardians: {
+                create: dto.guardians.map((g) => ({
+                  name: g.name,
+                  relationship: g.relationship,
+                  phone: g.phone,
+                  email: g.email,
+                  occupation: g.occupation,
+                  address: g.address,
+                })),
+              },
+            }),
         },
         select: STUDENT_DETAIL_SELECT,
       });
@@ -314,6 +330,50 @@ export class StudentService {
   }
 
   /**
+   * Uploads or updates student avatar image stored in Cloudinary.
+   */
+  async uploadAvatar(id: string, fileBuffer: Buffer) {
+    if (!fileBuffer) {
+      throw new BadRequestException('Avatar image file is required');
+    }
+
+    const student = await this.prisma.student.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        user: { select: { imageKey: true } },
+      },
+    });
+
+    if (!student) {
+      throw new NotFoundException(`Student "${id}" not found`);
+    }
+
+    // Delete existing avatar if present
+    if (student.user?.imageKey) {
+      await this.cloudinary.deleteImage(student.user.imageKey);
+    }
+
+    // Upload new image to Cloudinary
+    const uploaded = await this.cloudinary.uploadImage(
+      fileBuffer,
+      'dcms/avatars',
+    );
+
+    // Update User profile
+    await this.prisma.user.update({
+      where: { id: student.userId },
+      data: {
+        imageUrl: uploaded.url,
+        imageKey: uploaded.key,
+      },
+    });
+
+    return this.findById(id);
+  }
+
+  /**
    * Deletes a student profile and their underlying user account (plus Cloudinary avatar if present).
    */
   async deleteStudent(id: string) {
@@ -362,6 +422,15 @@ export class StudentService {
     status: string;
     createdAt: Date;
     updatedAt: Date;
+    guardians?: {
+      id: string;
+      name: string;
+      relationship: string;
+      phone: string | null;
+      email: string | null;
+      occupation: string | null;
+      address: string | null;
+    }[];
     user: {
       id: string;
       firstName: string;

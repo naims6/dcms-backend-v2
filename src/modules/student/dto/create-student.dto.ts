@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -12,8 +13,10 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
+import { CreateGuardianDto } from './create-guardian.dto.js';
 
 export class CreateStudentDto {
   // ── User Identity Fields ──────────────────────────────────────────────────
@@ -101,4 +104,12 @@ export class CreateStudentDto {
   @IsString({ message: 'emergencyContact must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
   emergencyContact?: string;
+
+  // ── Guardian Profiles ───────────────────────────────────────────────────
+
+  @IsOptional()
+  @IsArray({ message: 'guardians must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateGuardianDto)
+  guardians?: CreateGuardianDto[];
 }

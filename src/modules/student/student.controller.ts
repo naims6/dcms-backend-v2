@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -24,18 +25,31 @@ export class StudentController {
 
   /**
    * POST /students
-   * Create a new student (user identity + student profile).
-   * Optional image file upload via multipart form field 'image'.
+   * Create a new student profile and optional guardians (pure application/json).
    */
   @RequirePermissions(PERMISSIONS.STUDENTS_CREATE)
   @Post()
-  @UseInterceptors(FileInterceptor('image'))
   @ResponseMessage('Student created successfully')
-  createStudent(
-    @Body() dto: CreateStudentDto,
+  createStudent(@Body() dto: CreateStudentDto) {
+    return this.studentService.createStudent(dto);
+  }
+
+  /**
+   * POST /students/:id/avatar
+   * Upload or update student avatar profile picture (multipart form field 'image').
+   */
+  @RequirePermissions(PERMISSIONS.STUDENTS_UPDATE)
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('image'))
+  @ResponseMessage('Student avatar uploaded successfully')
+  uploadAvatar(
+    @Param('id') id: string,
     @UploadedFile() file?: { buffer: Buffer },
   ) {
-    return this.studentService.createStudent(dto, file?.buffer);
+    if (!file) {
+      throw new BadRequestException('Please provide an image file');
+    }
+    return this.studentService.uploadAvatar(id, file.buffer);
   }
 
   /**
