@@ -251,7 +251,7 @@ export class StudentService {
       }
     }
 
-    // If a new image file is uploaded, upload to Cloudinary and delete the old image
+    // If a new image file is uploaded, upload to Cloudinary and delete old image
     if (fileBuffer) {
       if (existingStudent.user?.imageKey) {
         await this.cloudinary.deleteImage(existingStudent.user.imageKey);
@@ -314,14 +314,7 @@ export class StudentService {
   }
 
   /**
-   * Uploads or replaces a student avatar image on Cloudinary.
-   */
-  async uploadAvatar(id: string, fileBuffer: Buffer) {
-    return this.updateStudent(id, {}, fileBuffer);
-  }
-
-  /**
-   * Deletes a student profile and their underlying user account (plus Cloudinary avatar).
+   * Deletes a student profile and their underlying user account (plus Cloudinary avatar if present).
    */
   async deleteStudent(id: string) {
     const student = await this.prisma.student.findUnique({

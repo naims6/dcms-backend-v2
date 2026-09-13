@@ -308,14 +308,7 @@ export class TeacherService {
   }
 
   /**
-   * Uploads or replaces a teacher avatar image on Cloudinary.
-   */
-  async uploadAvatar(id: string, fileBuffer: Buffer) {
-    return this.updateTeacher(id, {}, fileBuffer);
-  }
-
-  /**
-   * Deletes a teacher profile and their underlying user account (plus Cloudinary avatar).
+   * Deletes a teacher profile and their underlying user account (plus Cloudinary avatar if present).
    */
   async deleteTeacher(id: string) {
     const teacher = await this.prisma.teacher.findUnique({

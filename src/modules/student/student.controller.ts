@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -36,7 +35,6 @@ export class StudentController {
     @Body() dto: CreateStudentDto,
     @UploadedFile() file?: { buffer: Buffer },
   ) {
-    console.log('file', file);
     return this.studentService.createStudent(dto, file?.buffer);
   }
 
@@ -86,24 +84,6 @@ export class StudentController {
     @UploadedFile() file?: { buffer: Buffer },
   ) {
     return this.studentService.updateStudent(id, dto, file?.buffer);
-  }
-
-  /**
-   * POST /students/:id/avatar
-   * Upload student avatar image directly to Cloudinary.
-   */
-  @RequirePermissions(PERMISSIONS.STUDENTS_UPDATE)
-  @Post(':id/avatar')
-  @UseInterceptors(FileInterceptor('image'))
-  @ResponseMessage('Student avatar uploaded successfully')
-  uploadAvatar(
-    @Param('id') id: string,
-    @UploadedFile() file?: { buffer: Buffer },
-  ) {
-    if (!file) {
-      throw new BadRequestException('Please provide an image file');
-    }
-    return this.studentService.uploadAvatar(id, file.buffer);
   }
 
   /**
