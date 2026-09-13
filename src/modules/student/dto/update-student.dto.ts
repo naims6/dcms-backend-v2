@@ -1,10 +1,12 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
+  IsEmail,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
   Max,
   Min,
@@ -12,11 +14,44 @@ import {
 import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
 
 export class UpdateStudentDto {
+  // ── Optional User Identity Fields ──────────────────────────────────────────
+
+  @IsOptional()
+  @IsString({ message: 'firstName must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  firstName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'lastName must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  lastName?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'email must be a valid email address' })
+  @Transform(({ value }: { value?: string }) => value?.trim().toLowerCase())
+  email?: string;
+
+  @IsOptional()
+  @IsString({ message: 'phone must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  phone?: string;
+
+  @IsOptional()
+  @IsUrl({}, { message: 'imageUrl must be a valid URL' })
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  imageKey?: string;
+
+  // ── Optional Student Academic Profile Fields ──────────────────────────────
+
   @IsOptional()
   @IsUUID('4', { message: 'classId must be a valid UUID' })
   classId?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt({ message: 'rollNumber must be an integer' })
   @Min(1)
   @Max(9999)

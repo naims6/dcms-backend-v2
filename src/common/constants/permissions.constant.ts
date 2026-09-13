@@ -25,12 +25,16 @@ export const PERMISSIONS = {
   USERS_REVOKE_ROLE: 'users:revoke_role',
 
   // ── Students ───────────────────────────────────────────────────────────
+  STUDENTS_CREATE: 'students:create',
   STUDENTS_READ: 'students:read',
   STUDENTS_UPDATE: 'students:update',
+  STUDENTS_DELETE: 'students:delete',
 
   // ── Teachers ───────────────────────────────────────────────────────────
+  TEACHERS_CREATE: 'teachers:create',
   TEACHERS_READ: 'teachers:read',
   TEACHERS_UPDATE: 'teachers:update',
+  TEACHERS_DELETE: 'teachers:delete',
 } as const;
 
 /** Union type of every permission string — useful for typed checks. */

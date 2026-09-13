@@ -4,30 +4,39 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
+  Max,
   Min,
+  MinLength,
 } from 'class-validator';
 import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
 
-export class UpdateTeacherDto {
-  // ── Optional User Identity Fields ──────────────────────────────────────────
+export class CreateStudentDto {
+  // ── User Identity Fields ──────────────────────────────────────────────────
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'firstName is required' })
   @IsString({ message: 'firstName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
-  firstName?: string;
+  firstName!: string;
 
   @IsOptional()
   @IsString({ message: 'lastName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
   lastName?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'email is required' })
   @IsEmail({}, { message: 'email must be a valid email address' })
   @Transform(({ value }: { value?: string }) => value?.trim().toLowerCase())
-  email?: string;
+  email!: string;
+
+  @IsNotEmpty({ message: 'password is required' })
+  @IsString({ message: 'password must be a string' })
+  @MinLength(6, { message: 'password must be at least 6 characters long' })
+  password!: string;
 
   @IsOptional()
   @IsString({ message: 'phone must be a string' })
@@ -42,12 +51,23 @@ export class UpdateTeacherDto {
   @IsString()
   imageKey?: string;
 
-  // ── Optional Teacher Profile Fields ───────────────────────────────────────
+  // ── Student Academic Profile Fields ──────────────────────────────────────
+
+  @IsNotEmpty({ message: 'studentId is required' })
+  @IsString({ message: 'studentId must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  studentId!: string;
 
   @IsOptional()
-  @IsString({ message: 'employeeId must be a string' })
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  employeeId?: string;
+  @IsUUID('4', { message: 'classId must be a valid UUID' })
+  classId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'rollNumber must be an integer' })
+  @Min(1)
+  @Max(9999)
+  rollNumber?: number;
 
   @IsOptional()
   @IsDateString({}, { message: 'dateOfBirth must be a valid ISO date string' })
@@ -66,29 +86,16 @@ export class UpdateTeacherDto {
   bloodGroup?: BloodGroup;
 
   @IsOptional()
-  @IsString({ message: 'designation must be a string' })
+  @IsString({ message: 'religion must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
-  designation?: string;
+  religion?: string;
 
   @IsOptional()
-  @IsString({ message: 'qualification must be a string' })
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  qualification?: string;
-
-  @IsOptional()
-  @IsString({ message: 'department must be a string' })
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  department?: string;
-
-  @IsOptional()
-  @IsDateString({}, { message: 'joiningDate must be a valid ISO date string' })
-  joiningDate?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'experienceYears must be an integer' })
-  @Min(0)
-  experienceYears?: number;
+  @IsDateString(
+    {},
+    { message: 'admissionDate must be a valid ISO date string' },
+  )
+  admissionDate?: string;
 
   @IsOptional()
   @IsString({ message: 'emergencyContact must be a string' })
