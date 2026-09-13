@@ -23,6 +23,10 @@ const envSchema = z.object({
   BREVO_API_KEY: z.string().optional(),
   SENDER_EMAIL: z.string().default('noreply@dcms.com'),
   SENDER_NAME: z.string().default('DCMS'),
+
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -65,5 +69,11 @@ export const env = {
     brevoApiKey: configData.BREVO_API_KEY,
     senderEmail: configData.SENDER_EMAIL,
     senderName: configData.SENDER_NAME,
+  },
+
+  cloudinary: {
+    cloudName: configData.CLOUDINARY_CLOUD_NAME,
+    apiKey: configData.CLOUDINARY_API_KEY,
+    apiSecret: configData.CLOUDINARY_API_SECRET,
   },
 };
