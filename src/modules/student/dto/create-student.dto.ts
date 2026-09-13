@@ -1,35 +1,45 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
   Max,
   Min,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
+import { CreateGuardianDto } from './create-guardian.dto.js';
 
-export class UpdateStudentDto {
-  // ── Optional User Identity Fields ──────────────────────────────────────────
+export class CreateStudentDto {
+  // ── User Identity Fields ──────────────────────────────────────────────────
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'firstName is required' })
   @IsString({ message: 'firstName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
-  firstName?: string;
+  firstName!: string;
 
   @IsOptional()
   @IsString({ message: 'lastName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
   lastName?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'email is required' })
   @IsEmail({}, { message: 'email must be a valid email address' })
   @Transform(({ value }: { value?: string }) => value?.trim().toLowerCase())
-  email?: string;
+  email!: string;
+
+  @IsNotEmpty({ message: 'password is required' })
+  @IsString({ message: 'password must be a string' })
+  @MinLength(6, { message: 'password must be at least 6 characters long' })
+  password!: string;
 
   @IsOptional()
   @IsString({ message: 'phone must be a string' })
@@ -44,7 +54,12 @@ export class UpdateStudentDto {
   @IsString()
   imageKey?: string;
 
-  // ── Optional Student Academic Profile Fields ──────────────────────────────
+  // ── Student Academic Profile Fields ──────────────────────────────────────
+
+  @IsNotEmpty({ message: 'studentId is required' })
+  @IsString({ message: 'studentId must be a string' })
+  @Transform(({ value }: { value?: string }) => value?.trim())
+  studentId!: string;
 
   @IsOptional()
   @IsUUID('4', { message: 'classId must be a valid UUID' })
@@ -90,8 +105,11 @@ export class UpdateStudentDto {
   @Transform(({ value }: { value?: string }) => value?.trim())
   emergencyContact?: string;
 
+  // ── Guardian Profiles ───────────────────────────────────────────────────
+
   @IsOptional()
-  @IsString()
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  studentId?: string;
+  @IsArray({ message: 'guardians must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => CreateGuardianDto)
+  guardians?: CreateGuardianDto[];
 }

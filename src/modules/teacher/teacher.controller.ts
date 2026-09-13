@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TeacherService } from './teacher.service.js';
+import { CreateTeacherDto } from './dto/create-teacher.dto.js';
 import { UpdateTeacherDto } from './dto/update-teacher.dto.js';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
@@ -8,6 +21,22 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 @Controller('teachers')
 export class TeacherController {
   constructor(private readonly teacherService: TeacherService) {}
+
+  /**
+   * POST /teachers
+   * Create a new teacher (user identity + teacher profile).
+   * Optional image file upload via multipart form field 'image'.
+   */
+  @RequirePermissions(PERMISSIONS.TEACHERS_CREATE)
+  @Post()
+  @UseInterceptors(FileInterceptor('image'))
+  @ResponseMessage('Teacher created successfully')
+  createTeacher(
+    @Body() dto: CreateTeacherDto,
+    @UploadedFile() file?: { buffer: Buffer },
+  ) {
+    return this.teacherService.createTeacher(dto, file?.buffer);
+  }
 
   /**
    * GET /teachers
@@ -37,13 +66,29 @@ export class TeacherController {
 
   /**
    * PATCH /teachers/:id
-   * Update teacher profile fields: employeeId, dateOfBirth, gender.
-   * To change account status use PATCH /users/:userId/status instead.
+   * Unified update for teacher identity (User) and professional profile (Teacher).
+   * Optional image file upload via multipart form field 'image'.
    */
   @RequirePermissions(PERMISSIONS.TEACHERS_UPDATE)
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('image'))
   @ResponseMessage('Teacher updated successfully')
-  updateTeacher(@Param('id') id: string, @Body() dto: UpdateTeacherDto) {
-    return this.teacherService.updateTeacher(id, dto);
+  updateTeacher(
+    @Param('id') id: string,
+    @Body() dto: UpdateTeacherDto,
+    @UploadedFile() file?: { buffer: Buffer },
+  ) {
+    return this.teacherService.updateTeacher(id, dto, file?.buffer);
+  }
+
+  /**
+   * DELETE /teachers/:id
+   * Delete teacher profile and associated user account.
+   */
+  @RequirePermissions(PERMISSIONS.TEACHERS_DELETE)
+  @Delete(':id')
+  @ResponseMessage('Teacher deleted successfully')
+  deleteTeacher(@Param('id') id: string) {
+    return this.teacherService.deleteTeacher(id);
   }
 }

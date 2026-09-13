@@ -12,6 +12,9 @@ import { RbacModule } from './modules/rbac/rbac.module.js';
 import { UserModule } from './modules/user/user.module.js';
 import { StudentModule } from './modules/student/student.module.js';
 import { TeacherModule } from './modules/teacher/teacher.module.js';
+import { CloudinaryModule } from './common/cloudinary/cloudinary.module.js';
+import { PaymentModule } from './modules/payment/payment.module.js';
+import { AdmissionModule } from './modules/admission/admission.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 
@@ -19,12 +22,15 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
   imports: [
     PrismaModule,
     RedisModule,
+    CloudinaryModule,
     AuthModule,
     MailModule,
     RbacModule,
     UserModule,
     StudentModule,
     TeacherModule,
+    PaymentModule,
+    AdmissionModule,
   ],
   controllers: [AppController],
   providers: [

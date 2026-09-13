@@ -1,0 +1,26 @@
+model PaymentTransaction {
+  id              String          @id @default(uuid())
+  tranId          String          @unique // Unique System Transaction Ref (e.g. TXN_ADM_1741890000)
+  valId           String?         // Provider Validation ID (SSLCommerz val_id / bKash paymentID)
+  
+  purpose         PaymentPurpose
+  referenceId     String          // e.g. AdmissionApplication.id or StudentFee.id
+  
+  provider        PaymentProvider @default(SSLCOMMERZ)
+  amount          Decimal         @db.Decimal(10, 2)
+  currency        String          @default("BDT")
+  status          PaymentStatus   @default(PENDING)
+  
+  bankTranId      String?
+  cardType        String?
+  cardIssuer      String?
+  rawResponse     Json?
+  paidAt          DateTime?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tranId])
+  @@index([purpose, referenceId])
+  @@index([status])
+}

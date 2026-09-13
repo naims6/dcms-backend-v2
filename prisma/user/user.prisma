@@ -9,6 +9,9 @@ model User {
 
   phone String?
 
+  imageUrl String?
+  imageKey String?
+
   status UserStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())

@@ -4,30 +4,37 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
   Min,
+  MinLength,
 } from 'class-validator';
 import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
 
-export class UpdateTeacherDto {
-  // ── Optional User Identity Fields ──────────────────────────────────────────
+export class CreateTeacherDto {
+  // ── User Identity Fields ──────────────────────────────────────────────────
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'firstName is required' })
   @IsString({ message: 'firstName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
-  firstName?: string;
+  firstName!: string;
 
   @IsOptional()
   @IsString({ message: 'lastName must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
   lastName?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'email is required' })
   @IsEmail({}, { message: 'email must be a valid email address' })
   @Transform(({ value }: { value?: string }) => value?.trim().toLowerCase())
-  email?: string;
+  email!: string;
+
+  @IsNotEmpty({ message: 'password is required' })
+  @IsString({ message: 'password must be a string' })
+  @MinLength(6, { message: 'password must be at least 6 characters long' })
+  password!: string;
 
   @IsOptional()
   @IsString({ message: 'phone must be a string' })
@@ -42,12 +49,12 @@ export class UpdateTeacherDto {
   @IsString()
   imageKey?: string;
 
-  // ── Optional Teacher Profile Fields ───────────────────────────────────────
+  // ── Teacher Profile Fields ────────────────────────────────────────────────
 
-  @IsOptional()
+  @IsNotEmpty({ message: 'employeeId is required' })
   @IsString({ message: 'employeeId must be a string' })
   @Transform(({ value }: { value?: string }) => value?.trim())
-  employeeId?: string;
+  employeeId!: string;
 
   @IsOptional()
   @IsDateString({}, { message: 'dateOfBirth must be a valid ISO date string' })

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -9,7 +10,10 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { ChangeStatusDto } from './dto/change-status.dto.js';
@@ -81,6 +85,24 @@ export class UserController {
   @ResponseMessage('User status updated successfully')
   changeStatus(@Param('id') id: string, @Body() dto: ChangeStatusDto) {
     return this.userService.changeStatus(id, dto);
+  }
+
+  /**
+   * POST /users/:id/avatar
+   * Upload user avatar image to Cloudinary.
+   */
+  @RequirePermissions(PERMISSIONS.USERS_UPDATE)
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('image'))
+  @ResponseMessage('Avatar uploaded successfully')
+  uploadAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file?: { buffer: Buffer; mimetype: string },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Please provide an image file');
+    }
+    return this.userService.uploadAvatar(id, file.buffer);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

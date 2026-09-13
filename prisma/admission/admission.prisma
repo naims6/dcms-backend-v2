@@ -1,0 +1,80 @@
+model AdmissionApplication {
+  id                    String            @id @default(uuid())
+  applicationNo        String            @unique
+
+  // Security / Account Credentials
+  password              String            // Hashed password provided by applicant
+
+  // Personal Info
+  firstName             String
+  lastName              String
+  email                 String            @unique
+  phone                 String
+  dateOfBirth           DateTime
+  gender                Gender
+  bloodGroup            BloodGroup?
+  religion              String?
+  nationality           String            @default("Bangladeshi")
+  nationalIdOrBirthReg  String?
+  photoUrl              String            // Cloudinary image URL
+  photoKey              String?           // Cloudinary public_id
+
+  // Parents Info
+  fatherName            String
+  fatherPhone           String?
+  fatherOccupation      String?
+  fatherNid             String?
+
+  motherName            String
+  motherPhone           String?
+  motherOccupation      String?
+  motherNid             String?
+
+  // Local Guardian Info
+  localGuardianName     String?
+  localGuardianPhone    String?
+  localGuardianRelation String?
+  localGuardianAddress  String?
+
+  // Present Address
+  presentStreetAddress  String
+  presentUpazila        String
+  presentDistrict       String
+  presentDivision       String
+  presentPostCode       String?
+
+  // Permanent Address
+  sameAsPresentAddress  Boolean           @default(true)
+  permanentStreetAddress String?
+  permanentUpazila       String?
+  permanentDistrict      String?
+  permanentDivision      String?
+  permanentPostCode      String?
+
+  // Academic Information
+  targetClassId         String
+  previousSchoolName    String?
+  previousClass         String?
+  previousGpa           String?
+  previousBoardRoll     String?
+  previousPassingYear   Int?
+
+  // Workflow State & Admin Review
+  status                ApplicationStatus @default(PENDING_EMAIL_VERIFICATION)
+  isEmailVerified      Boolean           @default(false)
+  
+  rejectionReason       String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
+
+  createdStudentId      String?
+  paymentTransactionId  String?
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([applicationNo])
+}
