@@ -36,6 +36,7 @@ export interface SSLCommerzValidationResponse {
   val_id?: string;
   amount?: string;
   store_amount?: string;
+  store_id?: string;
   currency?: string;
   bank_tran_id?: string;
   card_type?: string;

@@ -21,6 +21,11 @@ import { AssignRoleDto } from './dto/assign-role.dto.js';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
+import {
+  imageUploadOptions,
+  ImageUploadValidationPipe,
+} from '../../common/uploads/image-upload.validation.js';
+import type { UploadedImageFile } from '../../common/uploads/image-upload.validation.js';
 
 @Controller('users')
 export class UserController {
@@ -93,11 +98,11 @@ export class UserController {
    */
   @RequirePermissions(PERMISSIONS.USERS_UPDATE)
   @Post(':id/avatar')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', imageUploadOptions))
   @ResponseMessage('Avatar uploaded successfully')
   uploadAvatar(
     @Param('id') id: string,
-    @UploadedFile() file?: { buffer: Buffer; mimetype: string },
+    @UploadedFile(ImageUploadValidationPipe) file?: UploadedImageFile,
   ) {
     if (!file) {
       throw new BadRequestException('Please provide an image file');

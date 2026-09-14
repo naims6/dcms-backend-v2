@@ -35,6 +35,10 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true' || v === '1'),
   SSLCOMMERZ_BASE_URL: z.string().default('http://localhost:3000'),
+
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:3000,http://localhost:3001'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -90,5 +94,11 @@ export const env = {
     storePassword: configData.SSLCOMMERZ_STORE_PASSWORD,
     isSandbox: configData.SSLCOMMERZ_IS_SANDBOX,
     baseUrl: configData.SSLCOMMERZ_BASE_URL,
+  },
+
+  cors: {
+    origin: configData.CORS_ORIGIN.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   },
 };

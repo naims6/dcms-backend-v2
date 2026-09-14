@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
 
@@ -14,6 +15,20 @@ interface HttpErrorPayload {
   error?: string;
   statusCode?: number;
   [key: string]: unknown;
+}
+
+interface MulterLimitError extends Error {
+  code: string;
+}
+
+function isMulterLimitError(error: unknown): error is MulterLimitError {
+  const errorWithCode = error as Error & { code?: unknown };
+
+  return (
+    error instanceof Error &&
+    typeof errorWithCode.code === 'string' &&
+    errorWithCode.code.startsWith('LIMIT_')
+  );
 }
 
 @Catch()
@@ -38,7 +53,39 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       stack = exception.stack;
     }
 
-    // 1. Handle NestJS Built-in HTTP Exceptions
+    // 1. Handle Rate Limit (ThrottlerException — 429 Too Many Requests)
+    if (exception instanceof ThrottlerException) {
+      statusCode = HttpStatus.TOO_MANY_REQUESTS;
+      error = 'Too Many Requests';
+      message = 'Too many requests. Please slow down and try again later.';
+
+      // Derive Retry-After from the exception TTL if available, defaulting to 60s
+      const throttlerResponse = exception.getResponse() as Record<
+        string,
+        unknown
+      >;
+      const ttlMs =
+        typeof throttlerResponse['ttl'] === 'number'
+          ? throttlerResponse['ttl']
+          : 60_000;
+      const retryAfterSeconds = Math.ceil(ttlMs / 1000);
+
+      response
+        .status(statusCode)
+        .setHeader('Retry-After', String(retryAfterSeconds))
+        .json({
+          success: false,
+          statusCode,
+          message,
+          error,
+          retryAfter: retryAfterSeconds,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        });
+      return;
+    }
+
+    // 2. Handle NestJS Built-in HTTP Exceptions
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const exceptionResponse = exception.getResponse();
@@ -62,7 +109,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // 2. Handle Prisma Database Exceptions
+    // 2. Handle Multer resource-limit errors
+    else if (isMulterLimitError(exception)) {
+      switch (exception.code) {
+        case 'LIMIT_FILE_SIZE':
+          statusCode = HttpStatus.PAYLOAD_TOO_LARGE;
+          error = 'Payload Too Large';
+          message = 'Image files must not exceed 5 MiB.';
+          break;
+        case 'LIMIT_UNEXPECTED_FILE':
+          statusCode = HttpStatus.BAD_REQUEST;
+          error = 'Bad Request';
+          message =
+            'Only one image file may be uploaded using the expected field.';
+          break;
+        default:
+          statusCode = HttpStatus.BAD_REQUEST;
+          error = 'Bad Request';
+          message = 'The multipart upload exceeds the allowed request limits.';
+      }
+    }
+    // 3. Handle Prisma Database Exceptions
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002': {
@@ -93,7 +160,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // 3. Handle Generic Runtime JavaScript Errors
+    // 4. Handle Generic Runtime JavaScript Errors
     else if (exception instanceof Error) {
       message = isDevelopment
         ? exception.message

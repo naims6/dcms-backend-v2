@@ -162,7 +162,7 @@ export class RbacService implements OnModuleInit {
     }
 
     // No permissionNames — just update name/description
-    return this.prisma.role.update({
+    const updated = await this.prisma.role.update({
       where: { id },
       data: {
         ...(name && { name }),
@@ -179,6 +179,10 @@ export class RbacService implements OnModuleInit {
         },
       },
     });
+
+    await this.invalidateCacheForRole(id);
+
+    return updated;
   }
 
   async deleteRole(id: string) {
@@ -238,10 +242,11 @@ export class RbacService implements OnModuleInit {
   private async resolvePermissionIds(
     names: string[],
   ): Promise<{ id: string; name: string }[]> {
-    if (names.length === 0) return [];
+    const uniqueNames = [...new Set(names)];
+    if (uniqueNames.length === 0) return [];
 
     const permissions = await this.prisma.permission.findMany({
-      where: { name: { in: names } },
+      where: { name: { in: uniqueNames } },
       select: { id: true, name: true },
     });
 

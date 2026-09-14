@@ -1,25 +1,29 @@
+enum NoticeCategory {
+  GENERAL
+  SCHOLARSHIP
+  JOB
+  RESULT
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
 
 model Notice {
-  id String @id @default(uuid())
-
-  title       String
-  description String
-
-  audience NoticeAudience @default(ALL)
-
-  isPublished Boolean @default(false)
-
+  id          String         @id @default(cuid())
+  category    NoticeCategory
+  subject     String         @db.VarChar(500)
+  body        String         @db.Text
+  noticeDate  DateTime
+  status      NoticeStatus   @default(DRAFT)
   publishedAt DateTime?
-  expiresAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  createdById String
-
-  createdBy User @relation("NoticeCreatedBy", fields: [createdById], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([audience])
-  @@index([isPublished])
-  @@index([publishedAt])
+  @@index([category])
+  @@index([status])
+  @@index([noticeDate])
+  @@index([createdAt])
 }

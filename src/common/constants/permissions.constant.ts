@@ -35,6 +35,16 @@ export const PERMISSIONS = {
   TEACHERS_READ: 'teachers:read',
   TEACHERS_UPDATE: 'teachers:update',
   TEACHERS_DELETE: 'teachers:delete',
+
+  // ── Admissions ─────────────────────────────────────────────────────────
+  ADMISSIONS_READ: 'admissions:read',
+  ADMISSIONS_UPDATE: 'admissions:update',
+
+  // ── Notices ────────────────────────────────────────────────────────────
+  NOTICES_CREATE: 'notices:create',
+  NOTICES_READ: 'notices:read',
+  NOTICES_UPDATE: 'notices:update',
+  NOTICES_DELETE: 'notices:delete',
 } as const;
 
 /** Union type of every permission string — useful for typed checks. */

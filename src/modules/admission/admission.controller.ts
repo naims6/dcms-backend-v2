@@ -23,8 +23,15 @@ import {
 } from './dto/initiate-admission-payment.dto.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
 import { ApplicationStatus } from '../../generated/prisma/client.js';
 import { UserPayload } from '../auth/dto/auth-response.dto.js';
+import {
+  imageUploadOptions,
+  ImageUploadValidationPipe,
+} from '../../common/uploads/image-upload.validation.js';
+import type { UploadedImageFile } from '../../common/uploads/image-upload.validation.js';
 
 @Controller('admission')
 export class AdmissionController {
@@ -35,11 +42,11 @@ export class AdmissionController {
    */
   @Public()
   @Post('apply')
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', imageUploadOptions))
   @ResponseMessage('Admission application submitted successfully')
   async apply(
     @Body() dto: CreateAdmissionDto,
-    @UploadedFile() photo?: { buffer: Buffer; mimetype?: string },
+    @UploadedFile(ImageUploadValidationPipe) photo?: UploadedImageFile,
   ) {
     return this.admissionService.apply(dto, photo);
   }
@@ -104,6 +111,7 @@ export class AdmissionController {
   /**
    * Admin: List All Applications
    */
+  @RequirePermissions(PERMISSIONS.ADMISSIONS_READ)
   @Get('admin/applications')
   @ResponseMessage('Admission applications retrieved successfully')
   async adminFindAll(
@@ -123,6 +131,7 @@ export class AdmissionController {
   /**
    * Admin: View Single Application Details & Payment Record
    */
+  @RequirePermissions(PERMISSIONS.ADMISSIONS_READ)
   @Get('admin/applications/:id')
   @ResponseMessage('Admission application details retrieved successfully')
   async adminFindOne(@Param('id') id: string) {
@@ -133,6 +142,7 @@ export class AdmissionController {
    * Admin: Accept & Admit Candidate
    * Automatically provisions User account (with applicant password), Student record, Guardians, and Address
    */
+  @RequirePermissions(PERMISSIONS.ADMISSIONS_UPDATE)
   @Patch('admin/applications/:id/accept')
   @ResponseMessage('Student application accepted and enrolled successfully')
   async adminAccept(@Param('id') id: string, @Req() req: Request) {
@@ -144,6 +154,7 @@ export class AdmissionController {
   /**
    * Admin: Reject Application
    */
+  @RequirePermissions(PERMISSIONS.ADMISSIONS_UPDATE)
   @Patch('admin/applications/:id/reject')
   @ResponseMessage('Student application rejected successfully')
   async adminReject(

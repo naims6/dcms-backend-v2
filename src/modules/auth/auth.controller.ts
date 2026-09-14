@@ -24,6 +24,7 @@ import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { AuthThrottle } from '../../common/decorators/throttle.decorator.js';
 
 @Controller('auth')
 export class AuthController {
@@ -32,6 +33,8 @@ export class AuthController {
   /**
    * User creation / Registration (Protected: require admin / active user session).
    */
+  @AuthThrottle()
+  @Public()
   @RequirePermissions(PERMISSIONS.USERS_CREATE)
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -48,6 +51,7 @@ export class AuthController {
   /**
    * Login with email and password.
    */
+  @AuthThrottle()
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
