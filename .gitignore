@@ -60,3 +60,4 @@ tsconfig.tsbuildinfo
 
 /src/generated/prisma
 /src/generated
+review.md

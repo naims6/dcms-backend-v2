@@ -121,11 +121,17 @@ export class SslcommerzProvider implements IPaymentProvider {
           bankTranId: data.bank_tran_id,
           cardType: data.card_type,
           cardIssuer: data.card_issuer,
+          gatewayTranId: data.tran_id,
+          gatewayAmount: data.amount,
+          gatewayCurrency: data.currency,
+          gatewayStoreId: data.store_id,
+          rawResponse: data as unknown as Record<string, unknown>,
         };
       }
 
       return {
         isValid: false,
+        rawResponse: data as unknown as Record<string, unknown>,
       };
     } catch (error: unknown) {
       const message =

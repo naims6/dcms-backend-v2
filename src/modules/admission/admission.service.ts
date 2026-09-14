@@ -186,10 +186,6 @@ export class AdmissionService {
       applicationNo,
     });
 
-    this.logger.log(
-      `Admission Application ${applicationNo} submitted. OTP ${otp} generated for email ${application.email}.`,
-    );
-
     return {
       applicationNo: application.applicationNo,
       email: application.email,

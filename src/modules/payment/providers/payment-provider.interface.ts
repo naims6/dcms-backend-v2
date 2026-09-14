@@ -23,6 +23,14 @@ export interface ValidatePaymentResult {
   cardType?: string;
   cardIssuer?: string;
   rawResponse?: Record<string, unknown>;
+  /** Gateway-reported transaction ID — must match our stored tranId */
+  gatewayTranId?: string;
+  /** Gateway-reported amount as a string (e.g. "500.00") */
+  gatewayAmount?: string;
+  /** Gateway-reported currency (e.g. "BDT") */
+  gatewayCurrency?: string;
+  /** Gateway store identifier used for this transaction */
+  gatewayStoreId?: string;
 }
 
 export interface IPaymentProvider {

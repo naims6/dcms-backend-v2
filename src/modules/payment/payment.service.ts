@@ -111,33 +111,93 @@ export class PaymentService {
     }
 
     if (transaction.status === PaymentStatus.VALIDATED) {
-      return transaction; // Already validated
+      return transaction; // Already validated — idempotent
     }
 
     // Validate with SSLCommerz Server
     const validation = await this.sslcommerzProvider.validatePayment(payload);
 
     if (validation.isValid) {
-      const updatedTxn = await this.prisma.paymentTransaction.update({
-        where: { id: transaction.id },
-        data: {
-          status: PaymentStatus.VALIDATED,
-          valId: validation.valId || callbackData.val_id,
-          bankTranId: validation.bankTranId || callbackData.bank_tran_id,
-          cardType: validation.cardType || callbackData.card_type,
-          cardIssuer: validation.cardIssuer || callbackData.card_issuer,
-          rawResponse: (validation.rawResponse ||
-            payload) as Prisma.InputJsonValue,
-          paidAt: new Date(),
-        },
-      });
+      // ── Gateway field verification ────────────────────────────────────────
+      const mismatches: string[] = [];
 
-      if (transaction.purpose === PaymentPurpose.ADMISSION_FEE) {
-        await this.prisma.admissionApplication.updateMany({
-          where: { id: transaction.referenceId },
-          data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
-        });
+      if (
+        validation.gatewayTranId &&
+        validation.gatewayTranId !== transaction.tranId
+      ) {
+        mismatches.push(
+          `tran_id: expected=${transaction.tranId} got=${validation.gatewayTranId}`,
+        );
       }
+
+      if (validation.gatewayAmount !== undefined) {
+        // Decimal-safe comparison: avoid floating-point drift
+        const gatewayDecimal = new Prisma.Decimal(validation.gatewayAmount);
+        if (!gatewayDecimal.equals(transaction.amount)) {
+          mismatches.push(
+            `amount: expected=${transaction.amount.toFixed(2)} got=${validation.gatewayAmount}`,
+          );
+        }
+      }
+
+      if (
+        validation.gatewayCurrency &&
+        validation.gatewayCurrency !== transaction.currency
+      ) {
+        mismatches.push(
+          `currency: expected=${transaction.currency} got=${validation.gatewayCurrency}`,
+        );
+      }
+
+      if (
+        validation.gatewayStoreId &&
+        validation.gatewayStoreId !== env.sslcommerz.storeId
+      ) {
+        mismatches.push(
+          `store_id: expected=${env.sslcommerz.storeId} got=${validation.gatewayStoreId}`,
+        );
+      }
+
+      if (mismatches.length > 0) {
+        // Record security event — do NOT change status; leave PENDING for retry
+        this.logger.error(
+          `SECURITY: Gateway field mismatch on tranId=${tranId} — ${mismatches.join('; ')}`,
+        );
+        throw new BadRequestException(
+          'Payment validation failed: gateway response does not match transaction record',
+        );
+      }
+      // ── End verification ─────────────────────────────────────────────────
+
+      // Atomic: PENDING → VALIDATED + optional admission status, as one DB transaction.
+      // The conditional `where` on status prevents double-processing if a concurrent
+      // request already committed a VALIDATED update.
+      const [updatedTxn] = await this.prisma.$transaction([
+        this.prisma.paymentTransaction.update({
+          where: {
+            id: transaction.id,
+            status: PaymentStatus.PENDING, // guard: only move forward from PENDING
+          },
+          data: {
+            status: PaymentStatus.VALIDATED,
+            valId: validation.valId ?? callbackData.val_id,
+            bankTranId: validation.bankTranId ?? callbackData.bank_tran_id,
+            cardType: validation.cardType ?? callbackData.card_type,
+            cardIssuer: validation.cardIssuer ?? callbackData.card_issuer,
+            rawResponse: (validation.rawResponse ??
+              payload) as Prisma.InputJsonValue,
+            paidAt: new Date(),
+          },
+        }),
+        ...(transaction.purpose === PaymentPurpose.ADMISSION_FEE
+          ? [
+              this.prisma.admissionApplication.updateMany({
+                where: { id: transaction.referenceId },
+                data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
+              }),
+            ]
+          : []),
+      ]);
 
       this.logger.log(`Payment transaction ${tranId} VALIDATED successfully.`);
       return updatedTxn;

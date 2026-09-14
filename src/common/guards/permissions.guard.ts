@@ -38,7 +38,6 @@ export class PermissionsGuard implements CanActivate {
     // 2. Get authenticated user from request (populated by JwtAuthGuard)
     const request = context.switchToHttp().getRequest<Request>();
     const user = request.user as UserPayload | undefined;
-    console.log(user);
 
     if (!user?.id) {
       throw new ForbiddenException('Access denied');
