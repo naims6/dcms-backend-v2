@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { Prisma } from '../../generated/prisma/client.js';
 
@@ -52,7 +53,39 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       stack = exception.stack;
     }
 
-    // 1. Handle NestJS Built-in HTTP Exceptions
+    // 1. Handle Rate Limit (ThrottlerException — 429 Too Many Requests)
+    if (exception instanceof ThrottlerException) {
+      statusCode = HttpStatus.TOO_MANY_REQUESTS;
+      error = 'Too Many Requests';
+      message = 'Too many requests. Please slow down and try again later.';
+
+      // Derive Retry-After from the exception TTL if available, defaulting to 60s
+      const throttlerResponse = exception.getResponse() as Record<
+        string,
+        unknown
+      >;
+      const ttlMs =
+        typeof throttlerResponse['ttl'] === 'number'
+          ? throttlerResponse['ttl']
+          : 60_000;
+      const retryAfterSeconds = Math.ceil(ttlMs / 1000);
+
+      response
+        .status(statusCode)
+        .setHeader('Retry-After', String(retryAfterSeconds))
+        .json({
+          success: false,
+          statusCode,
+          message,
+          error,
+          retryAfter: retryAfterSeconds,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        });
+      return;
+    }
+
+    // 2. Handle NestJS Built-in HTTP Exceptions
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const exceptionResponse = exception.getResponse();
