@@ -27,6 +27,11 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
 import { ApplicationStatus } from '../../generated/prisma/client.js';
 import { UserPayload } from '../auth/dto/auth-response.dto.js';
+import {
+  imageUploadOptions,
+  ImageUploadValidationPipe,
+} from '../../common/uploads/image-upload.validation.js';
+import type { UploadedImageFile } from '../../common/uploads/image-upload.validation.js';
 
 @Controller('admission')
 export class AdmissionController {
@@ -37,11 +42,11 @@ export class AdmissionController {
    */
   @Public()
   @Post('apply')
-  @UseInterceptors(FileInterceptor('photo'))
+  @UseInterceptors(FileInterceptor('photo', imageUploadOptions))
   @ResponseMessage('Admission application submitted successfully')
   async apply(
     @Body() dto: CreateAdmissionDto,
-    @UploadedFile() photo?: { buffer: Buffer; mimetype?: string },
+    @UploadedFile(ImageUploadValidationPipe) photo?: UploadedImageFile,
   ) {
     return this.admissionService.apply(dto, photo);
   }

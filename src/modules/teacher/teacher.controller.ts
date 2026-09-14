@@ -17,6 +17,11 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto.js';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/constants/permissions.constant.js';
 import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
+import {
+  imageUploadOptions,
+  ImageUploadValidationPipe,
+} from '../../common/uploads/image-upload.validation.js';
+import type { UploadedImageFile } from '../../common/uploads/image-upload.validation.js';
 
 @Controller('teachers')
 export class TeacherController {
@@ -29,11 +34,11 @@ export class TeacherController {
    */
   @RequirePermissions(PERMISSIONS.TEACHERS_CREATE)
   @Post()
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', imageUploadOptions))
   @ResponseMessage('Teacher created successfully')
   createTeacher(
     @Body() dto: CreateTeacherDto,
-    @UploadedFile() file?: { buffer: Buffer },
+    @UploadedFile(ImageUploadValidationPipe) file?: UploadedImageFile,
   ) {
     return this.teacherService.createTeacher(dto, file?.buffer);
   }
@@ -71,12 +76,12 @@ export class TeacherController {
    */
   @RequirePermissions(PERMISSIONS.TEACHERS_UPDATE)
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', imageUploadOptions))
   @ResponseMessage('Teacher updated successfully')
   updateTeacher(
     @Param('id') id: string,
     @Body() dto: UpdateTeacherDto,
-    @UploadedFile() file?: { buffer: Buffer },
+    @UploadedFile(ImageUploadValidationPipe) file?: UploadedImageFile,
   ) {
     return this.teacherService.updateTeacher(id, dto, file?.buffer);
   }

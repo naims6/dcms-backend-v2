@@ -16,6 +16,20 @@ interface HttpErrorPayload {
   [key: string]: unknown;
 }
 
+interface MulterLimitError extends Error {
+  code: string;
+}
+
+function isMulterLimitError(error: unknown): error is MulterLimitError {
+  const errorWithCode = error as Error & { code?: unknown };
+
+  return (
+    error instanceof Error &&
+    typeof errorWithCode.code === 'string' &&
+    errorWithCode.code.startsWith('LIMIT_')
+  );
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -62,7 +76,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // 2. Handle Prisma Database Exceptions
+    // 2. Handle Multer resource-limit errors
+    else if (isMulterLimitError(exception)) {
+      switch (exception.code) {
+        case 'LIMIT_FILE_SIZE':
+          statusCode = HttpStatus.PAYLOAD_TOO_LARGE;
+          error = 'Payload Too Large';
+          message = 'Image files must not exceed 5 MiB.';
+          break;
+        case 'LIMIT_UNEXPECTED_FILE':
+          statusCode = HttpStatus.BAD_REQUEST;
+          error = 'Bad Request';
+          message =
+            'Only one image file may be uploaded using the expected field.';
+          break;
+        default:
+          statusCode = HttpStatus.BAD_REQUEST;
+          error = 'Bad Request';
+          message = 'The multipart upload exceeds the allowed request limits.';
+      }
+    }
+    // 3. Handle Prisma Database Exceptions
     else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {
         case 'P2002': {
@@ -93,7 +127,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // 3. Handle Generic Runtime JavaScript Errors
+    // 4. Handle Generic Runtime JavaScript Errors
     else if (exception instanceof Error) {
       message = isDevelopment
         ? exception.message
