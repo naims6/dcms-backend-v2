@@ -19,6 +19,7 @@ import { TeacherModule } from './modules/teacher/teacher.module.js';
 import { CloudinaryModule } from './common/cloudinary/cloudinary.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
 import { AdmissionModule } from './modules/admission/admission.module.js';
+import { NoticeModule } from './modules/notice/notice.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { env } from './config/env.config.js';
@@ -52,6 +53,7 @@ import { env } from './config/env.config.js';
     TeacherModule,
     PaymentModule,
     AdmissionModule,
+    NoticeModule,
   ],
   controllers: [AppController],
   providers: [
