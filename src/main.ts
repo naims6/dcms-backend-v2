@@ -11,6 +11,20 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.setGlobalPrefix('api');
 
+  app.enableCors({
+    origin: env.cors.origin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type',
+      'authorization',
+      'Accept',
+      'X-Requested-With',
+      'Origin',
+      'Cookie',
+    ],
+  });
+
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
