@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -19,6 +20,7 @@ import {
   AuthResponseDto,
   MessageResponseDto,
   TokenRefreshResponseDto,
+  UserPayload,
 } from './dto/auth-response.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -34,7 +36,6 @@ export class AuthController {
    * User creation / Registration (Protected: require admin / active user session).
    */
   @AuthThrottle()
-  @Public()
   @RequirePermissions(PERMISSIONS.USERS_CREATE)
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -87,6 +88,16 @@ export class AuthController {
     const result = await this.authService.refreshToken({ refreshToken });
     this.setTokenCookies(res, result.accessToken, result.refreshToken);
     return result;
+  }
+
+  /**
+   * Get current authenticated user profile + roles + permissions (Protected).
+   */
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('User profile retrieved successfully')
+  async getProfile(@CurrentUser('id') userId: string): Promise<UserPayload> {
+    return this.authService.getProfile(userId);
   }
 
   /**

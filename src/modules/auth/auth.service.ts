@@ -12,7 +12,10 @@ import { env } from '../../config/env.config.js';
 import { UserStatus } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.service.js';
-import { REDIS_KEYS } from '../../common/constants/redis-keys.constant.js';
+import {
+  PERMISSIONS_CACHE_TTL,
+  REDIS_KEYS,
+} from '../../common/constants/redis-keys.constant.js';
 import {
   AuthResponseDto,
   MessageResponseDto,
@@ -103,7 +106,7 @@ export class AuthService {
     });
 
     const roles = user.userRoles.map((ur) => ur.role.name);
-    const userPayload = this.buildUserPayload(user, roles);
+    const userPayload = await this.buildUserPayload(user, roles);
 
     // 5. Generate access & refresh tokens and store refresh token in Redis
     const { accessToken, refreshToken, tokenId } = await this.generateTokenPair(
@@ -162,7 +165,7 @@ export class AuthService {
     }
 
     const roles = user.userRoles.map((ur) => ur.role.name);
-    const userPayload = this.buildUserPayload(user, roles);
+    const userPayload = await this.buildUserPayload(user, roles);
 
     // 4. Generate tokens & store refresh token in Redis
     const { accessToken, refreshToken, tokenId } = await this.generateTokenPair(
@@ -288,6 +291,40 @@ export class AuthService {
   }
 
   /**
+   * Get authenticated user profile with roles and permissions.
+   */
+  async getProfile(userId: string): Promise<UserPayload> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        userRoles: {
+          select: {
+            role: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User profile not found.');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Account status is ${user.status.toLowerCase()}. Please contact support.`,
+      );
+    }
+
+    const roles = user.userRoles.map((ur) => ur.role.name);
+    return this.buildUserPayload(user, roles);
+  }
+
+  /**
    * Logout user by revoking refresh token session in Redis.
    */
   async logout(
@@ -380,7 +417,46 @@ export class AuthService {
     await this.redisService.del(userTokensKey);
   }
 
-  private buildUserPayload(
+  private async getUserPermissions(userId: string): Promise<string[]> {
+    const cacheKey = REDIS_KEYS.userPermissions(userId);
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached) as string[];
+    }
+
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: {
+        role: {
+          select: {
+            permissions: {
+              select: {
+                permission: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const permissions = [
+      ...new Set(
+        userRoles.flatMap((ur) =>
+          ur.role.permissions.map((rp) => rp.permission.name),
+        ),
+      ),
+    ];
+
+    await this.redisService.set(
+      cacheKey,
+      JSON.stringify(permissions),
+      PERMISSIONS_CACHE_TTL,
+    );
+
+    return permissions;
+  }
+
+  private async buildUserPayload(
     user: {
       id: string;
       email: string;
@@ -389,7 +465,8 @@ export class AuthService {
       status: UserStatus;
     },
     roles: string[],
-  ): UserPayload {
+  ): Promise<UserPayload> {
+    const permissions = await this.getUserPermissions(user.id);
     return {
       id: user.id,
       email: user.email,
@@ -397,6 +474,7 @@ export class AuthService {
       lastName: user.lastName,
       status: user.status,
       roles,
+      permissions,
     };
   }
 
