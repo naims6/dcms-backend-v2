@@ -7,6 +7,7 @@ export interface UserPayload {
   lastName: string | null;
   status: UserStatus;
   roles: string[];
+  permissions: string[];
 }
 
 export class AuthResponseDto {
