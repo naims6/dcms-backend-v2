@@ -48,7 +48,7 @@ export class RbacService implements OnModuleInit {
   // ─────────────────────────────────────────────────────────────────────────
 
   async findAllRoles() {
-    return this.prisma.role.findMany({
+    const roles = await this.prisma.role.findMany({
       select: {
         id: true,
         name: true,
@@ -58,10 +58,15 @@ export class RbacService implements OnModuleInit {
             permission: { select: { id: true, name: true, description: true } },
           },
         },
-        _count: { select: { userRoles: true } },
+        _count: { select: { userRoles: true, permissions: true } },
       },
       orderBy: { name: 'asc' },
     });
+
+    return roles.map(({ permissions, ...role }) => ({
+      ...role,
+      permissions: permissions.map((p) => p.permission),
+    }));
   }
 
   async findRoleById(id: string) {
@@ -76,7 +81,7 @@ export class RbacService implements OnModuleInit {
             permission: { select: { id: true, name: true, description: true } },
           },
         },
-        _count: { select: { userRoles: true } },
+        _count: { select: { userRoles: true, permissions: true } },
       },
     });
 
@@ -84,7 +89,11 @@ export class RbacService implements OnModuleInit {
       throw new NotFoundException(`Role with id "${id}" not found`);
     }
 
-    return role;
+    const { permissions, ...rest } = role;
+    return {
+      ...rest,
+      permissions: permissions.map((p) => p.permission),
+    };
   }
 
   async createRole(dto: CreateRoleDto) {
@@ -97,7 +106,7 @@ export class RbacService implements OnModuleInit {
 
     const permissions = await this.resolvePermissionIds(permissionNames);
 
-    return this.prisma.role.create({
+    const created = await this.prisma.role.create({
       data: {
         name,
         description,
@@ -116,6 +125,12 @@ export class RbacService implements OnModuleInit {
         },
       },
     });
+
+    const { permissions: createdPermissions, ...rest } = created;
+    return {
+      ...rest,
+      permissions: createdPermissions.map((p) => p.permission),
+    };
   }
 
   async updateRole(id: string, dto: UpdateRoleDto) {
@@ -158,7 +173,11 @@ export class RbacService implements OnModuleInit {
       // Invalidate permissions cache for all users who hold this role
       await this.invalidateCacheForRole(id);
 
-      return updated;
+      const { permissions, ...rest } = updated;
+      return {
+        ...rest,
+        permissions: permissions.map((p) => p.permission),
+      };
     }
 
     // No permissionNames — just update name/description
@@ -182,7 +201,11 @@ export class RbacService implements OnModuleInit {
 
     await this.invalidateCacheForRole(id);
 
-    return updated;
+    const { permissions, ...rest } = updated;
+    return {
+      ...rest,
+      permissions: permissions.map((p) => p.permission),
+    };
   }
 
   async deleteRole(id: string) {
