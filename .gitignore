@@ -61,3 +61,4 @@ tsconfig.tsbuildinfo
 /src/generated/prisma
 /src/generated
 review.md
+frontend.md

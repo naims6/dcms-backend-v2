@@ -35,7 +35,6 @@ const TEACHER_DETAIL_SELECT = {
       email: true,
       phone: true,
       imageUrl: true,
-      imageKey: true,
       status: true,
       userRoles: {
         select: { role: { select: { id: true, name: true } } },
@@ -364,7 +363,7 @@ export class TeacherService {
       email: string;
       phone: string | null;
       imageUrl: string | null;
-      imageKey: string | null;
+      imageKey?: string | null;
       status: string;
       userRoles: { role: { id: string; name: string } }[];
     };

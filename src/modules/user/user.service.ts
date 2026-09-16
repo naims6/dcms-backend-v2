@@ -22,7 +22,6 @@ const USER_SUMMARY_SELECT = {
   email: true,
   phone: true,
   imageUrl: true,
-  imageKey: true,
   status: true,
   createdAt: true,
   userRoles: {
@@ -100,8 +99,13 @@ export class UserService {
       this.prisma.user.count({ where }),
     ]);
 
+    const formattedUsers = users.map(({ userRoles, ...user }) => ({
+      ...user,
+      roles: userRoles.map((ur) => ur.role),
+    }));
+
     return {
-      data: users,
+      data: formattedUsers,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -155,18 +159,15 @@ export class UserService {
       throw new BadRequestException('No fields provided to update');
     }
 
-    const { userRoles, student, teacher, ...updated } =
-      await this.prisma.user.update({
-        where: { id },
-        data: dto,
-        select: USER_DETAIL_SELECT,
-      });
+    const { userRoles, ...updated } = await this.prisma.user.update({
+      where: { id },
+      data: dto,
+      select: USER_SUMMARY_SELECT,
+    });
 
     return {
       ...updated,
       roles: userRoles.map((ur) => ur.role),
-      studentProfile: student ?? null,
-      teacherProfile: teacher ?? null,
     };
   }
 
@@ -206,7 +207,15 @@ export class UserService {
 
     await this.redis.del(REDIS_KEYS.userPermissions(userId));
 
-    return this.findById(userId);
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: { role: { select: { id: true, name: true } } },
+    });
+
+    return {
+      userId,
+      roles: userRoles.map((ur) => ur.role),
+    };
   }
 
   /**
@@ -231,7 +240,15 @@ export class UserService {
 
     await this.redis.del(REDIS_KEYS.userPermissions(userId));
 
-    return this.findById(userId);
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: { role: { select: { id: true, name: true } } },
+    });
+
+    return {
+      userId,
+      roles: userRoles.map((ur) => ur.role),
+    };
   }
 
   /**
