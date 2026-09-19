@@ -7,8 +7,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { NoticeService } from './notice.service.js';
+import { NoticePdfService } from './notice-pdf.service.js';
 import { CreateNoticeDto } from './dto/create-notice.dto.js';
 import { UpdateNoticeDto } from './dto/update-notice.dto.js';
 import { ListNoticesDto } from './dto/list-notices.dto.js';
@@ -32,7 +35,10 @@ function isAdmin(user?: UserPayload): boolean {
 
 @Controller('notices')
 export class NoticeController {
-  constructor(private readonly noticeService: NoticeService) {}
+  constructor(
+    private readonly noticeService: NoticeService,
+    private readonly noticePdfService: NoticePdfService,
+  ) {}
 
   /**
    * POST /notices
@@ -72,6 +78,26 @@ export class NoticeController {
   @ResponseMessage('Notice retrieved successfully')
   findById(@Param('id') id: string, @CurrentUser() currentUser?: UserPayload) {
     return this.noticeService.findById(id, isAdmin(currentUser));
+  }
+
+  /**
+   * GET /notices/:id/download-pdf
+   * @Public — open to everyone.
+   * Generates and streams a white-paper style PDF for the requested notice.
+   * Responds with the binary PDF data and appropriate download headers.
+   */
+  @Public()
+  @Get(':id/download-pdf')
+  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
+    const pdfBuffer = await this.noticePdfService.generatePdf(id);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="notice-${id}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+
+    res.end(pdfBuffer);
   }
 
   /**
