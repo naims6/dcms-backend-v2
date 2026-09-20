@@ -10,7 +10,7 @@ model Student {
   dateOfBirth DateTime?
   gender      Gender?
   bloodGroup  BloodGroup?
-  religion    String?
+  religion    Religion?
 
   admissionDate    DateTime?
   emergencyContact String?

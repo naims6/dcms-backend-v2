@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { CloudinaryService } from '../../common/cloudinary/cloudinary.service.js';
 import { CreateStudentDto } from './dto/create-student.dto.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
+import { Religion } from '../../generated/prisma/client.js';
 
 // ─── Reusable select shape ────────────────────────────────────────────────────
 
@@ -415,7 +416,7 @@ export class StudentService {
     dateOfBirth: Date | null;
     gender: string | null;
     bloodGroup: string | null;
-    religion: string | null;
+    religion: Religion | null;
     admissionDate: Date | null;
     emergencyContact: string | null;
     status: string;

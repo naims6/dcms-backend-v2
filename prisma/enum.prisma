@@ -53,6 +53,13 @@ enum BloodGroup {
   O_NEGATIVE
 }
 
+enum Religion {
+  ISLAM
+  HINDU
+  CHRISTIAN
+  OTHER
+}
+
 enum ApplicationStatus {
   PENDING_EMAIL_VERIFICATION
   EMAIL_VERIFIED

@@ -11,7 +11,11 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
+import {
+  BloodGroup,
+  Gender,
+  Religion,
+} from '../../../generated/prisma/client.js';
 
 export class UpdateStudentDto {
   // ── Optional User Identity Fields ──────────────────────────────────────────
@@ -74,9 +78,10 @@ export class UpdateStudentDto {
   bloodGroup?: BloodGroup;
 
   @IsOptional()
-  @IsString({ message: 'religion must be a string' })
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  religion?: string;
+  @IsEnum(Religion, {
+    message: `religion must be one of: ${Object.values(Religion).join(', ')}`,
+  })
+  religion?: Religion;
 
   @IsOptional()
   @IsDateString(
