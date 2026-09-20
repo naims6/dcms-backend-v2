@@ -18,20 +18,52 @@ export class NoticeService {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Paginated list of notices with optional filters.
-   *
-   * - isAdmin=true
-   *   → respects ?status= filter; all statuses (DRAFT & PUBLISHED) visible
-   * - isAdmin=false (public / non-admin users)
-   *   → always forced to PUBLISHED only, ?status= ignored
+   * Dashboard — returns ALL notices regardless of status.
+   * Supports filtering by status, category, and search term.
+   * Called by admin-only GET /notices.
    */
-  async findAll(query: ListNoticesDto, isAdmin: boolean) {
+  async findAllForDashboard(query: ListNoticesDto) {
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 20));
     const skip = (page - 1) * limit;
 
     const where = {
-      status: isAdmin ? (query.status ?? undefined) : NoticeStatus.PUBLISHED,
+      // Admins can optionally filter by a specific status; omitting it returns everything
+      ...(query.status && { status: query.status }),
+      ...(query.category && { category: query.category }),
+      ...(query.search && {
+        subject: { contains: query.search, mode: 'insensitive' as const },
+      }),
+    };
+
+    const [notices, total] = await Promise.all([
+      this.prisma.notice.findMany({
+        where,
+        orderBy: { noticeDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.notice.count({ where }),
+    ]);
+
+    return {
+      data: notices,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Public homepage — returns ONLY published notices.
+   * The status filter is intentionally hard-coded and cannot be overridden.
+   * Called by public GET /notices/public.
+   */
+  async findAllPublished(query: ListNoticesDto) {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+    const skip = (page - 1) * limit;
+
+    const where = {
+      status: NoticeStatus.PUBLISHED, // always fixed — never exposed to callers
       ...(query.category && { category: query.category }),
       ...(query.search && {
         subject: { contains: query.search, mode: 'insensitive' as const },
@@ -56,18 +88,18 @@ export class NoticeService {
 
   /**
    * Get a single notice by ID.
-   *
-   * - isAdmin=true  → any status returned
-   * - isAdmin=false → only PUBLISHED; 404 for others (don't leak existence)
+   * Used by both dashboard and public detail pages.
+   * Pass isPublic=true to restrict to PUBLISHED notices only (public route).
    */
-  async findById(id: string, isAdmin: boolean) {
+  async findById(id: string, isPublic = false) {
     const notice = await this.prisma.notice.findUnique({ where: { id } });
 
     if (!notice) {
       throw new NotFoundException(`Notice "${id}" not found`);
     }
 
-    if (!isAdmin && notice.status !== NoticeStatus.PUBLISHED) {
+    // On public routes, non-published notices must look like they don't exist
+    if (isPublic && notice.status !== NoticeStatus.PUBLISHED) {
       throw new NotFoundException(`Notice "${id}" not found`);
     }
 

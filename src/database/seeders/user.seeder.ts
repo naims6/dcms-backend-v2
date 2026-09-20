@@ -62,7 +62,7 @@ const users = [
     student: {
       studentId: 'STU001',
       gender: 'FEMALE' as const,
-      className: '10',
+      className: 'Ten',
       rollNumber: 1,
     },
     addresses: [

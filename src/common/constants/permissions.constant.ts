@@ -45,6 +45,9 @@ export const PERMISSIONS = {
   NOTICES_READ: 'notices:read',
   NOTICES_UPDATE: 'notices:update',
   NOTICES_DELETE: 'notices:delete',
+
+  // ── Classes ────────────────────────────────────────────────────────────
+  CLASSES_READ: 'classes:read',
 } as const;
 
 /** Union type of every permission string — useful for typed checks. */
