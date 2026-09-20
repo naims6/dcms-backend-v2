@@ -1,11 +1,11 @@
 import { PrismaClient } from '../../generated/prisma/client.js';
 
 const classes = [
-  { name: '6', numericValue: 6 },
-  { name: '7', numericValue: 7 },
-  { name: '8', numericValue: 8 },
-  { name: '9', numericValue: 9 },
-  { name: '10', numericValue: 10 },
+  { name: 'Six', numericValue: 6 },
+  { name: 'Seven', numericValue: 7 },
+  { name: 'Eight', numericValue: 8 },
+  { name: 'Nine', numericValue: 9 },
+  { name: 'Ten', numericValue: 10 },
 ];
 
 export async function seedClasses(prisma: PrismaClient) {
