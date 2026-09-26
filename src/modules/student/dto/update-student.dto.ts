@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -10,8 +11,14 @@ import {
   IsUUID,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
-import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
+import {
+  BloodGroup,
+  Gender,
+  Religion,
+} from '../../../generated/prisma/client.js';
+import { UpdateGuardianDto } from './update-guardian.dto.js';
 
 export class UpdateStudentDto {
   // ── Optional User Identity Fields ──────────────────────────────────────────
@@ -39,10 +46,6 @@ export class UpdateStudentDto {
   @IsOptional()
   @IsUrl({}, { message: 'imageUrl must be a valid URL' })
   imageUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  imageKey?: string;
 
   // ── Optional Student Academic Profile Fields ──────────────────────────────
 
@@ -74,9 +77,10 @@ export class UpdateStudentDto {
   bloodGroup?: BloodGroup;
 
   @IsOptional()
-  @IsString({ message: 'religion must be a string' })
-  @Transform(({ value }: { value?: string }) => value?.trim())
-  religion?: string;
+  @IsEnum(Religion, {
+    message: `religion must be one of: ${Object.values(Religion).join(', ')}`,
+  })
+  religion?: Religion;
 
   @IsOptional()
   @IsDateString(
@@ -94,4 +98,14 @@ export class UpdateStudentDto {
   @IsString()
   @Transform(({ value }: { value?: string }) => value?.trim())
   studentId?: string;
+
+  // ── Guardians (full replacement when the key is present) ─────────────────
+  // NOTE: when sent as multipart/form-data the client JSON-encodes this array;
+  // JsonBodyFieldsPipe decodes it before validation runs.
+
+  @IsOptional()
+  @IsArray({ message: 'guardians must be an array' })
+  @ValidateNested({ each: true })
+  @Type(() => UpdateGuardianDto)
+  guardians?: UpdateGuardianDto[];
 }

@@ -9,6 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { CloudinaryService } from '../../common/cloudinary/cloudinary.service.js';
 import { CreateStudentDto } from './dto/create-student.dto.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
+import { UpdateGuardianDto } from './dto/update-guardian.dto.js';
+import { Prisma, Religion } from '../../generated/prisma/client.js';
 
 // ─── Reusable select shape ────────────────────────────────────────────────────
 
@@ -208,37 +210,33 @@ export class StudentService {
   }
 
   /**
-   * Updates student personal (User table) and academic profile (Student table) fields atomically.
-   * If an image file buffer is provided, uploads it to Cloudinary and replaces the old avatar.
+   * Updates student personal (User table), academic profile (Student table) and
+   * guardian records atomically. The avatar is handled by uploadAvatar().
    */
-  async updateStudent(id: string, dto: UpdateStudentDto, fileBuffer?: Buffer) {
+  async updateStudent(id: string, dto: UpdateStudentDto) {
     const existingStudent = await this.prisma.student.findUnique({
       where: { id },
-      select: {
-        id: true,
-        userId: true,
-        studentId: true,
-        user: { select: { imageKey: true } },
-      },
+      select: { id: true, userId: true, studentId: true },
     });
 
     if (!existingStudent) {
       throw new NotFoundException(`Student "${id}" not found`);
     }
 
-    if (!fileBuffer && Object.keys(dto).length === 0) {
-      throw new BadRequestException('No fields or image provided to update');
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('No fields provided to update');
     }
 
-    let { imageUrl, imageKey } = dto;
     const {
       firstName,
       lastName,
       email,
       phone,
+      imageUrl,
       studentId,
       dateOfBirth,
       admissionDate,
+      guardians,
       ...studentFields
     } = dto;
 
@@ -266,32 +264,21 @@ export class StudentService {
       }
     }
 
-    // If a new image file is uploaded, upload to Cloudinary and delete old image
-    if (fileBuffer) {
-      if (existingStudent.user?.imageKey) {
-        await this.cloudinary.deleteImage(existingStudent.user.imageKey);
-      }
-      const uploaded = await this.cloudinary.uploadImage(
-        fileBuffer,
-        'dcms/avatars',
-      );
-      imageUrl = uploaded.url;
-      imageKey = uploaded.key;
-    }
-
     const hasUserUpdates =
       firstName !== undefined ||
       lastName !== undefined ||
       email !== undefined ||
       phone !== undefined ||
-      imageUrl !== undefined ||
-      imageKey !== undefined;
+      imageUrl !== undefined;
 
     const hasProfileUpdates =
       studentId !== undefined ||
       dateOfBirth !== undefined ||
       admissionDate !== undefined ||
       Object.keys(studentFields).length > 0;
+
+    // `guardians` is a full replacement, so only touch it when the key is present
+    const hasGuardianUpdates = guardians !== undefined;
 
     await this.prisma.$transaction(async (tx) => {
       if (hasUserUpdates) {
@@ -303,7 +290,6 @@ export class StudentService {
             ...(email !== undefined && { email }),
             ...(phone !== undefined && { phone }),
             ...(imageUrl !== undefined && { imageUrl }),
-            ...(imageKey !== undefined && { imageKey }),
           },
         });
       }
@@ -322,6 +308,10 @@ export class StudentService {
             }),
           },
         });
+      }
+
+      if (hasGuardianUpdates) {
+        await this.syncGuardians(tx, id, guardians ?? []);
       }
     });
 
@@ -406,6 +396,62 @@ export class StudentService {
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Replaces a student's guardian set with `guardians` (the full desired set).
+   *
+   * Rows carrying an `id` are updated in place, rows without one are created,
+   * and any existing guardian missing from the payload is deleted. Optional
+   * fields absent from a row are cleared, so the payload always wins.
+   * Must run inside the caller's transaction.
+   */
+  private async syncGuardians(
+    tx: Prisma.TransactionClient,
+    studentId: string,
+    guardians: UpdateGuardianDto[],
+  ): Promise<void> {
+    const existing = await tx.guardian.findMany({
+      where: { studentId },
+      select: { id: true },
+    });
+
+    const existingIds = new Set(existing.map((g) => g.id));
+    const keptIds = new Set(
+      guardians.map((g) => g.id).filter((gid): gid is string => !!gid),
+    );
+
+    // Guard against ids belonging to a different student
+    const foreignIds = [...keptIds].filter((gid) => !existingIds.has(gid));
+    if (foreignIds.length > 0) {
+      throw new BadRequestException(
+        `Guardian(s) ${foreignIds.join(', ')} do not belong to student "${studentId}"`,
+      );
+    }
+
+    const staleIds = [...existingIds].filter((gid) => !keptIds.has(gid));
+    if (staleIds.length > 0) {
+      await tx.guardian.deleteMany({
+        where: { id: { in: staleIds }, studentId },
+      });
+    }
+
+    for (const guardian of guardians) {
+      const data = {
+        name: guardian.name,
+        relationship: guardian.relationship,
+        phone: guardian.phone ?? null,
+        email: guardian.email ?? null,
+        occupation: guardian.occupation ?? null,
+        address: guardian.address ?? null,
+      };
+
+      if (guardian.id) {
+        await tx.guardian.update({ where: { id: guardian.id }, data });
+      } else {
+        await tx.guardian.create({ data: { studentId, ...data } });
+      }
+    }
+  }
+
   /** Flatten prisma relation shape into frontend-friendly object. */
   private normalizeStudent(student: {
     id: string;
@@ -415,7 +461,7 @@ export class StudentService {
     dateOfBirth: Date | null;
     gender: string | null;
     bloodGroup: string | null;
-    religion: string | null;
+    religion: Religion | null;
     admissionDate: Date | null;
     emergencyContact: string | null;
     status: string;

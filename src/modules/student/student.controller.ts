@@ -90,19 +90,14 @@ export class StudentController {
 
   /**
    * PATCH /students/:id
-   * Unified update for student identity (User) and academic profile (Student).
-   * Optional image file upload via multipart form field 'image'.
+   * Unified update for student identity (User), academic profile (Student) and guardians.
+   * JSON body only — the avatar is changed via POST /students/:id/avatar.
    */
   @RequirePermissions(PERMISSIONS.STUDENTS_UPDATE)
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('image', imageUploadOptions))
   @ResponseMessage('Student updated successfully')
-  updateStudent(
-    @Param('id') id: string,
-    @Body() dto: UpdateStudentDto,
-    @UploadedFile(ImageUploadValidationPipe) file?: UploadedImageFile,
-  ) {
-    return this.studentService.updateStudent(id, dto, file?.buffer);
+  updateStudent(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
+    return this.studentService.updateStudent(id, dto);
   }
 
   /**

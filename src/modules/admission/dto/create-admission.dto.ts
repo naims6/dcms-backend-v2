@@ -9,7 +9,11 @@ import {
   MinLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { BloodGroup, Gender } from '../../../generated/prisma/client.js';
+import {
+  BloodGroup,
+  Gender,
+  Religion,
+} from '../../../generated/prisma/client.js';
 
 export class CreateAdmissionDto {
   // Security / Credentials
@@ -47,9 +51,9 @@ export class CreateAdmissionDto {
   @IsOptional()
   bloodGroup?: BloodGroup;
 
-  @IsString()
+  @IsEnum(Religion)
   @IsOptional()
-  religion?: string;
+  religion?: Religion;
 
   @IsString()
   @IsOptional()
