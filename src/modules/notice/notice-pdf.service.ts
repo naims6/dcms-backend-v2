@@ -268,14 +268,19 @@ async function renderPdf(html: string): Promise<Buffer> {
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage', // avoids /dev/shm overflow in containers
       '--disable-gpu',
+      '--no-first-run',
+      '--no-zygote',
     ],
   });
 
   try {
     const page = await browser.newPage();
 
-    // Use setContent instead of navigation — faster and avoids network timeouts
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // Use domcontentloaded so external/hanging network connections never block PDF rendering
+    await page.setContent(html, {
+      waitUntil: 'domcontentloaded',
+      timeout: 10000,
+    });
 
     const pdf = await page.pdf({
       format: 'A4',
