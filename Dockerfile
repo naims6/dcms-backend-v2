@@ -16,6 +16,7 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # ========================================
 
 FROM base AS builder
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
@@ -31,6 +32,16 @@ RUN pnpm prune --prod
 FROM node:${NODE_VERSION}-bookworm-slim AS production
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Install Chromium and required fonts for PDF generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+# Point Puppeteer to the installed Chromium binary
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Non-root user setup
 # RUN groupadd --system --gid 1001 nestjs \
