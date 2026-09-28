@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import puppeteer from 'puppeteer';
 import type { Notice } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -15,7 +15,13 @@ const CATEGORY_LABEL: Record<string, string> = {
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class NoticePdfService {
+export class NoticePdfService implements OnModuleDestroy {
+  // In-memory cache for rendered PDFs: noticeId -> { buffer: Buffer, updatedAt: number }
+  private static pdfCache = new Map<
+    string,
+    { buffer: Buffer; updatedAt: number }
+  >();
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -29,8 +35,24 @@ export class NoticePdfService {
       throw new NotFoundException(`Notice "${id}" not found`);
     }
 
+    const cached = NoticePdfService.pdfCache.get(id);
+    if (cached && cached.updatedAt === notice.updatedAt.getTime()) {
+      return cached.buffer;
+    }
+
     const html = buildHtml(notice);
-    return renderPdf(html);
+    const buffer = await renderPdf(html);
+
+    NoticePdfService.pdfCache.set(id, {
+      buffer,
+      updatedAt: notice.updatedAt.getTime(),
+    });
+
+    return buffer;
+  }
+
+  async onModuleDestroy() {
+    await closeBrowser();
   }
 }
 
@@ -255,12 +277,21 @@ function buildHtml(notice: Notice): string {
 
 // ─── Puppeteer renderer ───────────────────────────────────────────────────────
 
-/**
- * Launches a headless Chromium instance, loads the HTML, and exports it as
- * an A4 PDF with proper print margins.
- */
-async function renderPdf(html: string): Promise<Buffer> {
-  const browser = await puppeteer.launch({
+let browserPromise: Promise<puppeteer.Browser> | null = null;
+
+async function getBrowser(): Promise<puppeteer.Browser> {
+  if (browserPromise) {
+    try {
+      const browser = await browserPromise;
+      if (browser.connected) {
+        return browser;
+      }
+    } catch {
+      browserPromise = null;
+    }
+  }
+
+  browserPromise = puppeteer.launch({
     headless: true,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [
@@ -270,16 +301,43 @@ async function renderPdf(html: string): Promise<Buffer> {
       '--disable-gpu',
       '--no-first-run',
       '--no-zygote',
+      '--single-process',
     ],
   });
 
-  try {
-    const page = await browser.newPage();
+  const browser = await browserPromise;
+  browser.on('disconnected', () => {
+    browserPromise = null;
+  });
+  return browser;
+}
 
+async function closeBrowser(): Promise<void> {
+  if (browserPromise) {
+    try {
+      const browser = await browserPromise;
+      await browser.close();
+    } catch {
+      // ignore
+    } finally {
+      browserPromise = null;
+    }
+  }
+}
+
+/**
+ * Uses a warm Chromium instance, loads the HTML in a new tab, and exports it as
+ * an A4 PDF with proper print margins.
+ */
+async function renderPdf(html: string): Promise<Buffer> {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+
+  try {
     // Use domcontentloaded so external/hanging network connections never block PDF rendering
     await page.setContent(html, {
       waitUntil: 'domcontentloaded',
-      timeout: 10000,
+      timeout: 15000,
     });
 
     const pdf = await page.pdf({
@@ -290,8 +348,8 @@ async function renderPdf(html: string): Promise<Buffer> {
 
     return Buffer.from(pdf);
   } finally {
-    // Always close the browser even if PDF generation throws
-    await browser.close();
+    // Close only the tab to free memory while keeping browser warm for subsequent requests
+    await page.close().catch(() => {});
   }
 }
 
