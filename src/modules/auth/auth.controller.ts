@@ -152,6 +152,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? 'none' : 'lax',
+      path: '/',
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
@@ -160,6 +161,7 @@ export class AuthController {
         httpOnly: true,
         secure: isProd,
         sameSite: isProd ? 'none' : 'lax',
+        path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
     }
@@ -167,7 +169,15 @@ export class AuthController {
 
   // clear cookies
   private clearTokenCookies(res: Response): void {
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? ('none' as const) : ('lax' as const),
+      path: '/',
+    };
+
+    res.clearCookie('access_token', cookieOptions);
+    res.clearCookie('refresh_token', cookieOptions);
   }
 }
