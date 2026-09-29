@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import SSLCommerzPayment from 'sslcommerz-lts';
 import { env } from '../../../config/env.config.js';
 import {
   IPaymentProvider,
@@ -12,22 +13,31 @@ import {
   SSLCommerzValidationResponse,
 } from '../interfaces/sslcommerz.interface.js';
 
+/**
+ * SSLCommerz Payment Provider
+ *
+ * Uses the official `sslcommerz-lts` package to initiate payment sessions
+ * and securely validate transactions with the SSLCommerz gateway.
+ */
 @Injectable()
 export class SslcommerzProvider implements IPaymentProvider {
   private readonly logger = new Logger(SslcommerzProvider.name);
+  private readonly sslcommerz: SSLCommerzPayment;
 
-  private get sessionUrl(): string {
-    return env.sslcommerz.isSandbox
-      ? 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'
-      : 'https://securepay.sslcommerz.com/gwprocess/v4/api.php';
+  constructor() {
+    // live: true for live production mode, false for sandbox mode
+    const isLive = !env.sslcommerz.isSandbox;
+    this.sslcommerz = new SSLCommerzPayment(
+      env.sslcommerz.storeId,
+      env.sslcommerz.storePassword,
+      isLive,
+    );
   }
 
-  private get validationUrl(): string {
-    return env.sslcommerz.isSandbox
-      ? 'https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php'
-      : 'https://securepay.sslcommerz.com/validator/api/validationserverAPI.php';
-  }
-
+  /**
+   * Initiates payment with SSLCommerz using sslcommerz-lts SDK.
+   * Returns the GatewayPageURL where the customer should complete payment.
+   */
   async initiatePayment(
     params: InitiatePaymentParams,
   ): Promise<InitiatePaymentResult> {
@@ -42,9 +52,7 @@ export class SslcommerzProvider implements IPaymentProvider {
       ipnUrl,
     } = params;
 
-    const payload = new URLSearchParams({
-      store_id: env.sslcommerz.storeId,
-      store_passwd: env.sslcommerz.storePassword,
+    const paymentData = {
       total_amount: Number(transaction.amount).toFixed(2),
       currency: transaction.currency || 'BDT',
       tran_id: transaction.tranId,
@@ -52,6 +60,10 @@ export class SslcommerzProvider implements IPaymentProvider {
       fail_url: failUrl,
       cancel_url: cancelUrl,
       ipn_url: ipnUrl,
+      shipping_method: 'NO',
+      product_name: `Payment for ${transaction.purpose}`,
+      product_category: 'Education',
+      product_profile: 'non-physical-goods',
       cus_name: customerName || 'Valued Customer',
       cus_email: customerEmail || 'customer@example.com',
       cus_add1: 'Dhaka, Bangladesh',
@@ -59,40 +71,38 @@ export class SslcommerzProvider implements IPaymentProvider {
       cus_postcode: '1000',
       cus_country: 'Bangladesh',
       cus_phone: customerPhone || '01700000000',
-      shipping_method: 'NO',
-      product_name: `Payment for ${transaction.purpose}`,
-      product_category: 'Education',
-      product_profile: 'non-physical-goods',
-    });
+    };
 
     try {
-      const response = await fetch(this.sessionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: payload.toString(),
-      });
+      this.logger.log(
+        `Initiating SSLCommerz payment session for tranId: ${transaction.tranId}`,
+      );
+      const response: SSLCommerzInitResponse =
+        await this.sslcommerz.init(paymentData);
 
-      const data = (await response.json()) as SSLCommerzInitResponse;
-
-      if (data.status === 'SUCCESS' && data.GatewayPageURL) {
+      if (response?.status === 'SUCCESS' && response?.GatewayPageURL) {
         return {
-          gatewayUrl: data.GatewayPageURL,
+          gatewayUrl: response.GatewayPageURL,
           tranId: transaction.tranId,
         };
       }
 
       const failMsg =
-        data.failedreason || 'SSLCommerz session initiation failed';
-      this.logger.error(`SSLCommerz Session Failed: ${failMsg}`);
+        response?.failedreason || 'SSLCommerz session initiation failed';
+      this.logger.error(`SSLCommerz Session Initiation Failed: ${failMsg}`);
       throw new BadRequestException(failMsg);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'SSLCommerz connection error';
-      this.logger.error(`SSLCommerz HTTP Error: ${message}`);
+      this.logger.error(`SSLCommerz Init Error: ${message}`);
       throw new BadRequestException(message);
     }
   }
 
+  /**
+   * Validates a transaction with SSLCommerz using val_id.
+   * Calls the validation server to confirm the transaction status and authenticity.
+   */
   async validatePayment(
     payload: Record<string, unknown>,
   ): Promise<ValidatePaymentResult> {
@@ -100,38 +110,40 @@ export class SslcommerzProvider implements IPaymentProvider {
     const valId = callbackPayload.val_id;
 
     if (!valId) {
+      this.logger.warn(
+        'Payment validation skipped: Missing val_id in callback payload',
+      );
       return { isValid: false, rawResponse: payload };
     }
 
-    const query = new URLSearchParams({
-      val_id: valId,
-      store_id: env.sslcommerz.storeId,
-      store_passwd: env.sslcommerz.storePassword,
-      format: 'json',
-    });
-
     try {
-      const response = await fetch(`${this.validationUrl}?${query.toString()}`);
-      const data = (await response.json()) as SSLCommerzValidationResponse;
+      this.logger.log(
+        `Validating payment with SSLCommerz for val_id: ${valId}`,
+      );
+      const response: SSLCommerzValidationResponse =
+        await this.sslcommerz.validate({ val_id: valId });
 
-      if (data.status === 'VALID' || data.status === 'VALIDATED') {
+      if (response?.status === 'VALID' || response?.status === 'VALIDATED') {
         return {
           isValid: true,
-          valId: data.val_id,
-          bankTranId: data.bank_tran_id,
-          cardType: data.card_type,
-          cardIssuer: data.card_issuer,
-          gatewayTranId: data.tran_id,
-          gatewayAmount: data.amount,
-          gatewayCurrency: data.currency,
-          gatewayStoreId: data.store_id,
-          rawResponse: data as unknown as Record<string, unknown>,
+          valId: response.val_id,
+          bankTranId: response.bank_tran_id,
+          cardType: response.card_type,
+          cardIssuer: response.card_issuer,
+          gatewayTranId: response.tran_id,
+          gatewayAmount: response.amount,
+          gatewayCurrency: response.currency,
+          gatewayStoreId: response.store_id,
+          rawResponse: response as unknown as Record<string, unknown>,
         };
       }
 
+      this.logger.warn(
+        `SSLCommerz validation failed with status: ${response?.status}`,
+      );
       return {
         isValid: false,
-        rawResponse: data as unknown as Record<string, unknown>,
+        rawResponse: response as unknown as Record<string, unknown>,
       };
     } catch (error: unknown) {
       const message =

@@ -352,7 +352,7 @@ export class AdmissionService {
    * Step 4: Get Admission Fee Receipt (by email or applicationNo)
    */
   async getReceipt(identifier: string) {
-    const application = await this.prisma.admissionApplication.findFirst({
+    let application = await this.prisma.admissionApplication.findFirst({
       where: {
         OR: [
           { email: identifier.toLowerCase() },
@@ -360,6 +360,20 @@ export class AdmissionService {
         ],
       },
     });
+
+    // If not found by email or applicationNo, check if identifier is a transaction tranId
+    if (!application) {
+      const txn = await this.paymentService.getByTranId(identifier);
+      if (
+        txn &&
+        txn.purpose === PaymentPurpose.ADMISSION_FEE &&
+        txn.referenceId
+      ) {
+        application = await this.prisma.admissionApplication.findUnique({
+          where: { id: txn.referenceId },
+        });
+      }
+    }
 
     if (!application) {
       throw new NotFoundException(

@@ -71,17 +71,17 @@ export class PaymentService {
     });
 
     const provider = this.getProvider(providerType);
-    const baseUrl = env.sslcommerz.baseUrl.replace(/\/$/, '');
+    const backendUrl = env.sslcommerz.backendUrl.replace(/\/$/, '');
 
     const result = await provider.initiatePayment({
       transaction,
       customerName: dto.customerName,
       customerEmail: dto.customerEmail,
       customerPhone: dto.customerPhone,
-      successUrl: `${baseUrl}/api/v1/payments/sslcommerz/success`,
-      failUrl: `${baseUrl}/api/v1/payments/sslcommerz/fail`,
-      cancelUrl: `${baseUrl}/api/v1/payments/sslcommerz/cancel`,
-      ipnUrl: `${baseUrl}/api/v1/payments/sslcommerz/ipn`,
+      successUrl: `${backendUrl}/api/v1/payments/sslcommerz/success`,
+      failUrl: `${backendUrl}/api/v1/payments/sslcommerz/fail`,
+      cancelUrl: `${backendUrl}/api/v1/payments/sslcommerz/cancel`,
+      ipnUrl: `${backendUrl}/api/v1/payments/sslcommerz/ipn`,
     });
 
     return result;
@@ -284,5 +284,13 @@ export class PaymentService {
       where: { purpose, referenceId, status: PaymentStatus.VALIDATED },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  async getAdmissionApplicationNo(referenceId: string): Promise<string | null> {
+    const app = await this.prisma.admissionApplication.findUnique({
+      where: { id: referenceId },
+      select: { applicationNo: true },
+    });
+    return app?.applicationNo ?? null;
   }
 }
