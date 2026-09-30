@@ -30,47 +30,54 @@ Built to replace slow, paper-based school operations with a structured, secure, 
 ## ✨ Key Features
 
 ### 🔐 Auth & Security
-- JWT access + refresh token pair with separate secrets and configurable TTLs
-- Refresh token rotation — every use issues a new pair; replaying an old token revokes **all sessions** for that user
-- Redis-backed session store with per-token TTL
-- bcrypt password hashing · account status check on every login
-- Changing password forces a logout across all devices
+- **Safe Logins:** Uses secure access tokens and refresh tokens to keep users safely logged in.
+- **Auto-Logout on Suspicious Activity:** If someone tries to reuse an old or stolen token, the system immediately logs out all active sessions for that user.
+- **Fast Session Management:** Active sessions are stored in Redis with automatic expiration.
+- **Strong Password Protection:** Passwords are encrypted with bcrypt, and user account status is checked on every login.
+- **Logout Across All Devices:** Changing your password instantly logs you out from every device.
 
-### 🛡️ Dynamic Role & Permission System (RBAC)
-- Create, update, and delete roles at runtime through the API — no code changes needed
-- Fine-grained permission strings (e.g. `notice:create`, `admission:review`) synced to DB on startup
-- Permissions cached in Redis per user and auto-invalidated when a role changes
-- `@Permissions()` decorator + global `PermissionsGuard` enforces access at the controller level
+### 🛡️ Dynamic Roles & Permissions (RBAC)
+- **No Code Changes Needed:** You can create, edit, or delete user roles anytime through the API or dashboard without touching any code.
+- **Precise Permissions:** Easily assign specific actions to roles (like `notice:create` to write notices or `admission:review` to check applications).
+- **Instant Updates:** Permissions are cached in Redis and update immediately when a role is changed.
+- **Protected Routes:** Built-in guards check user permissions before allowing access to any sensitive action.
 
 ### 🎓 Full Admission Pipeline
-A stateful, multi-step admission workflow:
+A simple, complete step-by-step admission process:
 
-1. **Apply** — Submit form with photo (uploaded to Cloudinary). Application number auto-generated as `ADM-2025-0001`
-2. **Verify Email** — 6-digit OTP sent to email, stored in Redis with 10-minute TTL
-3. **Pay** — Admission fee via SSLCommerz or bKash
-4. **Admin Review** — Paginated list with search by name, email, phone, or application number; filter by status
-5. **Accept** — User account, student record, guardians, and addresses created in a single DB transaction. Student ID auto-generated as `STU-2025-0001`. Acceptance email sent automatically.
-6. **Reject** — Rejection reason stored and email sent to applicant.
+1. **Apply Online** — Applicants fill out the form and upload their photo (stored safely in Cloudinary). The system automatically creates an application ID (like `ADM-2025-0001`).
+2. **Verify Email** — A 6-digit verification code (OTP) is sent to the applicant's email (valid for 10 minutes).
+3. **Pay Admission Fee** — Applicants pay the fee online securely via SSLCommerz.
+4. **Admin Review** — School staff can search through applications by name, email, phone, or application number, and filter by status.
+5. **Accept Applicant** — With one click, the system creates the student login account, student profile, guardian details, and home address. It automatically generates a Student ID (like `STU-2025-0001`) and sends an acceptance email.
+6. **Reject Applicant** — If an application is rejected, the reason is saved and an email explanation is automatically sent to the applicant.
 
-### 💳 Payment Integration
-- Provider pattern — SSLCommerz fully integrated, bKash stub ready
-- Server-side validation against SSLCommerz API before marking any transaction as paid
-- Amount, currency, `store_id`, and `tran_id` all verified against the original record to prevent tampering
-- Atomic DB update: `PENDING → VALIDATED` + downstream status change in one transaction
+### 💳 Payment Integration (SSLCommerz)
+- **Real-Time Verification:** Every payment is verified directly with SSLCommerz before marking it as paid.
+- **Tamper-Proof:** The system verifies the amount, currency, store ID, and transaction ID against the database record to prevent fraud.
+- **Automatic Status Updates:** Once the payment is verified, the system automatically marks the transaction as completed and updates the application.
 
-### 📢 Notice System
-- Draft / Published lifecycle with automatic `publishedAt` timestamp
-- Published notices are public; drafts are admin-only
-- **PDF export** — any notice can be downloaded as a formatted A4 PDF, rendered with Puppeteer + Chromium inside Docker. PDFs are cached in memory and only re-rendered when the content changes.
+### 📢 Notice Board & PDF Download
+- **Draft & Publish:** Write notices as drafts first, then publish them whenever you are ready.
+- **Public & Private:** Published notices are visible to everyone; drafts can only be seen by admins.
+- **Download as PDF:** Any notice can be downloaded as a clean, ready-to-print A4 PDF. PDFs are cached so they download quickly without re-rendering every time.
 
 ### 🚦 Rate Limiting
-`@nestjs/throttler` backed by Redis — rate limits are consistent across multiple server instances. Per-route overrides via a custom `@Throttle()` decorator.
+- **Server Protection:** Protects the API from spam, abuse, or too many requests using Redis and throttler guards.
+- **Custom Limits:** Easy to set custom limits for specific routes (like login or payment endpoints).
 
-### 👤 Student & Teacher Management
-Full CRUD for students (with guardian and address records), teachers, classes, and user accounts. Assign/revoke roles and change account status from the API.
+### 👤 Student, Teacher & Class Management
+- **Complete Records:** Full control (create, view, update, delete) for students, parent/guardian info, and home addresses.
+- **Teachers & Classes:** Easily manage teacher profiles, classes, sections, and user accounts.
+- **Role Assignment:** Assign or change user roles and activate or suspend accounts anytime from the API.
 
 ### 📧 Email Notifications
-Brevo (Sendinblue) in production, console logger in development. Emails sent for: account creation, admission OTP, admission accepted, admission rejected.
+- **Automated Emails:** Uses Brevo (Sendinblue) to reliably deliver emails (logs to console in development).
+- **Automatic Emails For:**
+  - New account creation details
+  - 6-digit admission OTP code
+  - Admission accepted confirmation
+  - Admission rejected notification with reason
 
 ---
 
@@ -84,7 +91,7 @@ Brevo (Sendinblue) in production, console logger in development. Emails sent for
 | **ORM** | Prisma 7 |
 | **Cache / Sessions** | Redis 8 via ioredis |
 | **Authentication** | JWT + bcrypt |
-| **Payment** | SSLCommerz, bKash |
+| **Payment** | SSLCommerz |
 | **Media Storage** | Cloudinary |
 | **PDF Generation** | Puppeteer + Chromium |
 | **Email** | Brevo (Sendinblue) |
@@ -113,7 +120,7 @@ backend/
 │   │   ├── teacher/              # Teacher profiles
 │   │   ├── class/                # Class management
 │   │   ├── admission/            # Full admission pipeline
-│   │   ├── payment/              # SSLCommerz, bKash, callbacks
+│   │   ├── payment/              # SSLCommerz integration & callbacks
 │   │   ├── notice/               # Notice CRUD + PDF export
 │   │   └── mail/                 # Email providers
 │   └── types/
@@ -125,12 +132,6 @@ backend/
 ---
 
 ## 🚀 Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) `>= 24`
-- [pnpm](https://pnpm.io/) `>= 11`
-- [Docker](https://www.docker.com/)
 
 ### Installation
 
@@ -156,18 +157,6 @@ pnpm start:dev
 ```
 
 API runs at `http://localhost:3000/api/v1`
-
-### Available Scripts
-
-| Command | Description |
-|---|---|
-| `pnpm start:dev` | Start with hot reload |
-| `pnpm build` | Production build |
-| `pnpm test` | Unit tests |
-| `pnpm test:e2e` | End-to-end tests |
-| `pnpm prisma:migrate` | Run migrations |
-| `pnpm prisma:generate` | Regenerate Prisma client |
-| `pnpm seed` | Seed the database |
 
 ---
 
