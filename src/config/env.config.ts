@@ -28,13 +28,15 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
 
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
+  BACKEND_URL: z.string().optional(),
   SSLCOMMERZ_STORE_ID: z.string().default('testbox'),
   SSLCOMMERZ_STORE_PASSWORD: z.string().default('qwerty'),
   SSLCOMMERZ_IS_SANDBOX: z
     .string()
     .default('true')
     .transform((v) => v === 'true' || v === '1'),
-  SSLCOMMERZ_BASE_URL: z.string().default('http://localhost:3000'),
+  SSLCOMMERZ_BASE_URL: z.string().optional(),
 
   CORS_ORIGIN: z
     .string()
@@ -89,11 +91,25 @@ export const env = {
     apiSecret: configData.CLOUDINARY_API_SECRET,
   },
 
+  frontendUrl: configData.FRONTEND_URL,
+  backendUrl:
+    configData.BACKEND_URL ||
+    configData.SSLCOMMERZ_BASE_URL ||
+    `http://localhost:${configData.PORT}`,
+
   sslcommerz: {
     storeId: configData.SSLCOMMERZ_STORE_ID,
     storePassword: configData.SSLCOMMERZ_STORE_PASSWORD,
     isSandbox: configData.SSLCOMMERZ_IS_SANDBOX,
-    baseUrl: configData.SSLCOMMERZ_BASE_URL,
+    backendUrl:
+      configData.BACKEND_URL ||
+      configData.SSLCOMMERZ_BASE_URL ||
+      `http://localhost:${configData.PORT}`,
+    frontendUrl: configData.FRONTEND_URL,
+    baseUrl:
+      configData.BACKEND_URL ||
+      configData.SSLCOMMERZ_BASE_URL ||
+      `http://localhost:${configData.PORT}`,
   },
 
   cors: {

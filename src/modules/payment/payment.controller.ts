@@ -12,6 +12,7 @@ import { PaymentService } from './payment.service.js';
 import { env } from '../../config/env.config.js';
 import { SSLCommerzCallbackPayload } from './interfaces/sslcommerz.interface.js';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { PaymentPurpose } from '../../generated/prisma/client.js';
 
 @Controller('payments')
 export class PaymentController {
@@ -30,22 +31,38 @@ export class PaymentController {
     this.logger.log(
       `SSLCommerz Success Callback received for tran_id: ${callbackData.tran_id ?? 'unknown'}`,
     );
+    const frontendUrl = env.sslcommerz.frontendUrl.replace(/\/$/, '');
+
     try {
       const transaction =
         await this.paymentService.processSslcommerzSuccess(payload);
-      const frontendUrl = env.sslcommerz.baseUrl.replace(/\/$/, '');
-      return res.redirect(
-        `${frontendUrl}/admission/complete?tranId=${transaction.tranId}&status=success`,
-      );
+
+      // On payment success: redirect directly to Step 4 (Download Receipt)
+      let redirectUrl = `${frontendUrl}/admissions?step=4&tranId=${transaction.tranId}&status=success`;
+
+      if (
+        transaction.purpose === PaymentPurpose.ADMISSION_FEE &&
+        transaction.referenceId
+      ) {
+        const applicationNo =
+          await this.paymentService.getAdmissionApplicationNo(
+            transaction.referenceId,
+          );
+        if (applicationNo) {
+          redirectUrl = `${frontendUrl}/admissions?step=4&applicationNo=${applicationNo}&status=success`;
+        }
+      }
+
+      return res.redirect(HttpStatus.SEE_OTHER, redirectUrl);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'Payment validation error';
       this.logger.error(
         `Error processing SSLCommerz success callback: ${message}`,
       );
-      const frontendUrl = env.sslcommerz.baseUrl.replace(/\/$/, '');
       return res.redirect(
-        `${frontendUrl}/admission/complete?status=error&message=${encodeURIComponent(message)}`,
+        HttpStatus.SEE_OTHER,
+        `${frontendUrl}/admissions?step=3&status=error&message=${encodeURIComponent(message)}`,
       );
     }
   }
@@ -62,8 +79,11 @@ export class PaymentController {
       `SSLCommerz Fail Callback received for tran_id: ${callbackData.tran_id ?? 'unknown'}`,
     );
     await this.paymentService.processSslcommerzFail(payload);
-    const frontendUrl = env.sslcommerz.baseUrl.replace(/\/$/, '');
-    return res.redirect(`${frontendUrl}/admission/complete?status=fail`);
+    const frontendUrl = env.sslcommerz.frontendUrl.replace(/\/$/, '');
+    return res.redirect(
+      HttpStatus.SEE_OTHER,
+      `${frontendUrl}/admissions?step=3&status=fail`,
+    );
   }
 
   @Public()
@@ -78,8 +98,11 @@ export class PaymentController {
       `SSLCommerz Cancel Callback received for tran_id: ${callbackData.tran_id ?? 'unknown'}`,
     );
     await this.paymentService.processSslcommerzCancel(payload);
-    const frontendUrl = env.sslcommerz.baseUrl.replace(/\/$/, '');
-    return res.redirect(`${frontendUrl}/admission/complete?status=cancel`);
+    const frontendUrl = env.sslcommerz.frontendUrl.replace(/\/$/, '');
+    return res.redirect(
+      HttpStatus.SEE_OTHER,
+      `${frontendUrl}/admissions?step=3&status=cancel`,
+    );
   }
 
   @Public()
