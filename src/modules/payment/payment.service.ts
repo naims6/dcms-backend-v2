@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SslcommerzProvider } from './providers/sslcommerz.provider.js';
@@ -73,18 +74,53 @@ export class PaymentService {
     const provider = this.getProvider(providerType);
     const backendUrl = env.sslcommerz.backendUrl.replace(/\/$/, '');
 
-    const result = await provider.initiatePayment({
-      transaction,
-      customerName: dto.customerName,
-      customerEmail: dto.customerEmail,
-      customerPhone: dto.customerPhone,
-      successUrl: `${backendUrl}/api/v1/payments/sslcommerz/success`,
-      failUrl: `${backendUrl}/api/v1/payments/sslcommerz/fail`,
-      cancelUrl: `${backendUrl}/api/v1/payments/sslcommerz/cancel`,
-      ipnUrl: `${backendUrl}/api/v1/payments/sslcommerz/ipn`,
-    });
+    try {
+      return await provider.initiatePayment({
+        transaction,
+        customerName: dto.customerName,
+        customerEmail: dto.customerEmail,
+        customerPhone: dto.customerPhone,
+        successUrl: `${backendUrl}/api/v1/payments/sslcommerz/success`,
+        failUrl: `${backendUrl}/api/v1/payments/sslcommerz/fail`,
+        cancelUrl: `${backendUrl}/api/v1/payments/sslcommerz/cancel`,
+        ipnUrl: `${backendUrl}/api/v1/payments/sslcommerz/ipn`,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Unknown provider error';
 
-    return result;
+      try {
+        await this.prisma.paymentTransaction.update({
+          where: { id: transaction.id },
+          data: {
+            status: PaymentStatus.FAILED,
+            rawResponse: {
+              stage: 'INITIATE',
+              provider: providerType,
+              reason,
+              failedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (persistError) {
+        // Never let a DB hiccup here mask the original gateway failure.
+        this.logger.error(
+          `Could not mark transaction ${tranId} as FAILED: ${
+            persistError instanceof Error
+              ? persistError.message
+              : 'unknown error'
+          }`,
+        );
+      }
+
+      this.logger.error(
+        `Payment initiation failed for tranId=${tranId} via ${providerType}: ${reason}`,
+      );
+
+      throw new BadGatewayException(
+        'Payment gateway is currently unavailable. Please try again later.',
+      );
+    }
   }
 
   /**
