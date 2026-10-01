@@ -7,11 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import { NoticeService } from './notice.service.js';
-import { NoticePdfService } from './notice-pdf.service.js';
 import { CreateNoticeDto } from './dto/create-notice.dto.js';
 import { UpdateNoticeDto } from './dto/update-notice.dto.js';
 import { ListNoticesDto } from './dto/list-notices.dto.js';
@@ -22,10 +19,7 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 
 @Controller('notices')
 export class NoticeController {
-  constructor(
-    private readonly noticeService: NoticeService,
-    private readonly noticePdfService: NoticePdfService,
-  ) {}
+  constructor(private readonly noticeService: NoticeService) {}
 
   // ─── Public endpoints ─────────────────────────────────────────────────────
   // NOTE: All literal routes (non-parameterised) MUST be declared before
@@ -55,25 +49,6 @@ export class NoticeController {
   @ResponseMessage('Notice retrieved successfully')
   findPublishedById(@Param('id') id: string) {
     return this.noticeService.findById(id, true);
-  }
-
-  /**
-   * GET /notices/:id/download-pdf
-   * Download a notice as a white-paper A4 PDF.
-   * No authentication required. Streams a binary PDF file.
-   */
-  @Public()
-  @Get(':id/download-pdf')
-  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
-    const pdfBuffer = await this.noticePdfService.generatePdf(id);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="notice-${id}.pdf"`,
-      'Content-Length': pdfBuffer.length.toString(),
-    });
-
-    res.end(pdfBuffer);
   }
 
   // ─── Dashboard endpoints (admin only) ─────────────────────────────────────
