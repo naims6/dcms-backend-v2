@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.service.js';
 import { MailService } from '../mail/mail.service.js';
@@ -34,6 +35,10 @@ export class AdmissionService {
   private readonly ADMISSION_FEE_AMOUNT = 100.0;
   private readonly OTP_TTL_SECONDS = 600; // 10 minutes
 
+  // Suffix alphabet/length for applicationNo and studentId. 36^5 ~= 60M values.
+  private readonly SUFFIX_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  private readonly SUFFIX_LENGTH = 5;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -42,24 +47,19 @@ export class AdmissionService {
     private readonly paymentService: PaymentService,
   ) {}
 
-  /**
-   * Generates formatted unique application number: ADM-YEAR-XXXX
-   */
-  private async generateApplicationNo(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.admissionApplication.count();
-    const sequence = (count + 1).toString().padStart(4, '0');
-    return `ADM-${year}-${sequence}`;
+  private generateApplicationNo(): string {
+    return `ADM-${new Date().getFullYear()}-${this.randomSuffix()}`;
   }
 
-  /**
-   * Generates studentId for auto-enrollment: STU-YEAR-XXXX
-   */
-  private async generateStudentId(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.student.count();
-    const sequence = (count + 1).toString().padStart(4, '0');
-    return `STU-${year}-${sequence}`;
+  private generateStudentId(): string {
+    return `STU-${new Date().getFullYear()}-${this.randomSuffix()}`;
+  }
+  private randomSuffix(): string {
+    let suffix = '';
+    for (let i = 0; i < this.SUFFIX_LENGTH; i++) {
+      suffix += this.SUFFIX_ALPHABET[randomInt(this.SUFFIX_ALPHABET.length)];
+    }
+    return suffix;
   }
 
   /**
@@ -109,7 +109,7 @@ export class AdmissionService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // 4. Generate Application Number
-    const applicationNo = await this.generateApplicationNo();
+    const applicationNo = this.generateApplicationNo();
 
     // 5. Create DB Record
     const application = await this.prisma.admissionApplication.create({
@@ -556,7 +556,7 @@ export class AdmissionService {
       );
     }
 
-    const studentId = await this.generateStudentId();
+    const studentId = this.generateStudentId();
 
     // Check if user role STUDENT exists
     const studentRole = await this.prisma.role.findFirst({

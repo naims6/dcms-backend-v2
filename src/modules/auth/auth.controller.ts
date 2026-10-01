@@ -116,6 +116,7 @@ export class AuthController {
   /**
    * Logout user and invalidate refresh token session (Protected).
    */
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('User logged out successfully')
