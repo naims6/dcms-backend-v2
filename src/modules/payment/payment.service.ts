@@ -172,35 +172,63 @@ export class PaymentService {
       // Atomic: PENDING → VALIDATED + optional admission status, as one DB transaction.
       // The conditional `where` on status prevents double-processing if a concurrent
       // request already committed a VALIDATED update.
-      const [updatedTxn] = await this.prisma.$transaction([
-        this.prisma.paymentTransaction.update({
-          where: {
-            id: transaction.id,
-            status: PaymentStatus.PENDING, // guard: only move forward from PENDING
-          },
-          data: {
-            status: PaymentStatus.VALIDATED,
-            valId: validation.valId ?? callbackData.val_id,
-            bankTranId: validation.bankTranId ?? callbackData.bank_tran_id,
-            cardType: validation.cardType ?? callbackData.card_type,
-            cardIssuer: validation.cardIssuer ?? callbackData.card_issuer,
-            rawResponse: (validation.rawResponse ??
-              payload) as Prisma.InputJsonValue,
-            paidAt: new Date(),
-          },
-        }),
-        ...(transaction.purpose === PaymentPurpose.ADMISSION_FEE
-          ? [
-              this.prisma.admissionApplication.updateMany({
-                where: { id: transaction.referenceId },
-                data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
-              }),
-            ]
-          : []),
-      ]);
+      try {
+        const [updatedTxn] = await this.prisma.$transaction([
+          this.prisma.paymentTransaction.update({
+            where: {
+              id: transaction.id,
+              status: PaymentStatus.PENDING, // guard: only move forward from PENDING
+            },
+            data: {
+              status: PaymentStatus.VALIDATED,
+              valId: validation.valId ?? callbackData.val_id,
+              bankTranId: validation.bankTranId ?? callbackData.bank_tran_id,
+              cardType: validation.cardType ?? callbackData.card_type,
+              cardIssuer: validation.cardIssuer ?? callbackData.card_issuer,
+              rawResponse: (validation.rawResponse ??
+                payload) as Prisma.InputJsonValue,
+              paidAt: new Date(),
+            },
+          }),
+          ...(transaction.purpose === PaymentPurpose.ADMISSION_FEE
+            ? [
+                this.prisma.admissionApplication.updateMany({
+                  where: { id: transaction.referenceId },
+                  data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
+                }),
+              ]
+            : []),
+        ]);
 
-      this.logger.log(`Payment transaction ${tranId} VALIDATED successfully.`);
-      return updatedTxn;
+        this.logger.log(
+          `Payment transaction ${tranId} VALIDATED successfully.`,
+        );
+        return updatedTxn;
+      } catch (error) {
+        // P2025 = "Record to update not found". The `status: PENDING` guard matched
+        // 0 rows, meaning a concurrent request (IPN webhook vs browser redirect) won
+        // the race and already committed VALIDATED. Recover idempotently instead of
+        // reporting a failure for a payment that was actually captured.
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== 'P2025'
+        ) {
+          throw error;
+        }
+
+        const current = await this.prisma.paymentTransaction.findUnique({
+          where: { id: transaction.id },
+        });
+
+        if (current?.status === PaymentStatus.VALIDATED) {
+          this.logger.warn(
+            `Concurrent duplicate callback for tranId=${tranId} — already VALIDATED, treating as success.`,
+          );
+          return current;
+        }
+
+        throw error;
+      }
     } else {
       const failedTxn = await this.prisma.paymentTransaction.update({
         where: { id: transaction.id },
