@@ -550,9 +550,9 @@ export class AdmissionService {
       throw new NotFoundException(`Application ID ${id} not found`);
     }
 
-    if (application.status === ApplicationStatus.ADMITTED) {
+    if (application.status !== ApplicationStatus.SUBMITTED_FOR_REVIEW) {
       throw new BadRequestException(
-        'This application has already been accepted & admitted.',
+        `Cannot admit applicant with status "${application.status}". Application must be in ${ApplicationStatus.SUBMITTED_FOR_REVIEW}.`,
       );
     }
 
@@ -565,6 +565,24 @@ export class AdmissionService {
 
     // Execute Prisma Transaction
     const result = await this.prisma.$transaction(async (tx) => {
+      // 0. Verify the admission fee was actually captured before enrolling the student.
+      // Checked inside the transaction so it cannot be invalidated by a concurrent
+      // state change between the check above and the writes below.
+      const validatedPayment = await tx.paymentTransaction.findFirst({
+        where: {
+          purpose: PaymentPurpose.ADMISSION_FEE,
+          referenceId: application.id,
+          status: PaymentStatus.VALIDATED,
+        },
+        select: { id: true },
+      });
+
+      if (!validatedPayment) {
+        throw new BadRequestException(
+          'Cannot admit applicant: no VALIDATED admission fee payment was found for this application.',
+        );
+      }
+
       // 1. Create User Account (using student's hashed password)
       const user = await tx.user.create({
         data: {
@@ -722,9 +740,11 @@ export class AdmissionService {
       throw new NotFoundException(`Application ID ${id} not found`);
     }
 
-    if (application.status === ApplicationStatus.ADMITTED) {
+    // State-machine guard: rejection is a review outcome, so it is only valid from
+    // SUBMITTED_FOR_REVIEW. ADMITTED is terminal and cannot be rejected.
+    if (application.status !== ApplicationStatus.SUBMITTED_FOR_REVIEW) {
       throw new BadRequestException(
-        'Cannot reject an application that has already been admitted.',
+        `Cannot reject applicant with status "${application.status}". Application must be in ${ApplicationStatus.SUBMITTED_FOR_REVIEW}.`,
       );
     }
 

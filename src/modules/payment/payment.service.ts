@@ -169,9 +169,6 @@ export class PaymentService {
       }
       // ── End verification ─────────────────────────────────────────────────
 
-      // Atomic: PENDING → VALIDATED + optional admission status, as one DB transaction.
-      // The conditional `where` on status prevents double-processing if a concurrent
-      // request already committed a VALIDATED update.
       try {
         const [updatedTxn] = await this.prisma.$transaction([
           this.prisma.paymentTransaction.update({
@@ -205,10 +202,6 @@ export class PaymentService {
         );
         return updatedTxn;
       } catch (error) {
-        // P2025 = "Record to update not found". The `status: PENDING` guard matched
-        // 0 rows, meaning a concurrent request (IPN webhook vs browser redirect) won
-        // the race and already committed VALIDATED. Recover idempotently instead of
-        // reporting a failure for a payment that was actually captured.
         if (
           !(error instanceof Prisma.PrismaClientKnownRequestError) ||
           error.code !== 'P2025'
