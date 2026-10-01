@@ -244,15 +244,15 @@ export class TeacherService {
       }
     }
 
-    // If a new image file is uploaded, upload to Cloudinary and delete old image
+    const previousImageKey = existingTeacher.user?.imageKey;
+    let uploadedImageKey: string | undefined;
+
     if (fileBuffer) {
-      if (existingTeacher.user?.imageKey) {
-        await this.cloudinary.deleteImage(existingTeacher.user.imageKey);
-      }
       const uploaded = await this.cloudinary.uploadImage(
         fileBuffer,
         'dcms/avatars',
       );
+      uploadedImageKey = uploaded.key;
       imageUrl = uploaded.url;
       imageKey = uploaded.key;
     }
@@ -271,37 +271,49 @@ export class TeacherService {
       joiningDate !== undefined ||
       Object.keys(teacherFields).length > 0;
 
-    await this.prisma.$transaction(async (tx) => {
-      if (hasUserUpdates) {
-        await tx.user.update({
-          where: { id: existingTeacher.userId },
-          data: {
-            ...(firstName !== undefined && { firstName }),
-            ...(lastName !== undefined && { lastName }),
-            ...(email !== undefined && { email }),
-            ...(phone !== undefined && { phone }),
-            ...(imageUrl !== undefined && { imageUrl }),
-            ...(imageKey !== undefined && { imageKey }),
-          },
-        });
-      }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (hasUserUpdates) {
+          await tx.user.update({
+            where: { id: existingTeacher.userId },
+            data: {
+              ...(firstName !== undefined && { firstName }),
+              ...(lastName !== undefined && { lastName }),
+              ...(email !== undefined && { email }),
+              ...(phone !== undefined && { phone }),
+              ...(imageUrl !== undefined && { imageUrl }),
+              ...(imageKey !== undefined && { imageKey }),
+            },
+          });
+        }
 
-      if (hasProfileUpdates) {
-        await tx.teacher.update({
-          where: { id },
-          data: {
-            ...teacherFields,
-            ...(employeeId !== undefined && { employeeId }),
-            ...(dateOfBirth !== undefined && {
-              dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-            }),
-            ...(joiningDate !== undefined && {
-              joiningDate: joiningDate ? new Date(joiningDate) : null,
-            }),
-          },
-        });
+        if (hasProfileUpdates) {
+          await tx.teacher.update({
+            where: { id },
+            data: {
+              ...teacherFields,
+              ...(employeeId !== undefined && { employeeId }),
+              ...(dateOfBirth !== undefined && {
+                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+              }),
+              ...(joiningDate !== undefined && {
+                joiningDate: joiningDate ? new Date(joiningDate) : null,
+              }),
+            },
+          });
+        }
+      });
+    } catch (error) {
+      if (uploadedImageKey) {
+        await this.cloudinary.deleteImage(uploadedImageKey);
       }
-    });
+      throw error;
+    }
+
+    // Only once the new keys are durably stored is the old image safe to drop.
+    if (previousImageKey) {
+      await this.cloudinary.deleteImage(previousImageKey);
+    }
 
     return this.findById(id);
   }
@@ -323,15 +335,17 @@ export class TeacherService {
       throw new NotFoundException(`Teacher "${id}" not found`);
     }
 
-    // Delete Cloudinary image if present
-    if (teacher.user?.imageKey) {
-      await this.cloudinary.deleteImage(teacher.user.imageKey);
-    }
-
+    // Delete the account first. A database failure (e.g. a foreign key
+    // restriction) must not leave a live user row pointing at a 404 URL.
     // Deleting the user will cascade delete the teacher record
     await this.prisma.user.delete({
       where: { id: teacher.userId },
     });
+
+    // The row is gone, so the asset is now an orphan and safe to reclaim.
+    if (teacher.user?.imageKey) {
+      await this.cloudinary.deleteImage(teacher.user.imageKey);
+    }
 
     return { id, message: 'Teacher deleted successfully' };
   }

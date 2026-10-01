@@ -61,6 +61,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Ping Redis to verify connectivity. Returns 'PONG' when reachable.
+   */
+  async ping(): Promise<string> {
+    return this.client.ping();
+  }
+
+  /**
    * Get string value by key
    */
   async get(key: string): Promise<string | null> {

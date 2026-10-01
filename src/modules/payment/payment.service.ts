@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { SslcommerzProvider } from './providers/sslcommerz.provider.js';
@@ -73,18 +74,53 @@ export class PaymentService {
     const provider = this.getProvider(providerType);
     const backendUrl = env.sslcommerz.backendUrl.replace(/\/$/, '');
 
-    const result = await provider.initiatePayment({
-      transaction,
-      customerName: dto.customerName,
-      customerEmail: dto.customerEmail,
-      customerPhone: dto.customerPhone,
-      successUrl: `${backendUrl}/api/v1/payments/sslcommerz/success`,
-      failUrl: `${backendUrl}/api/v1/payments/sslcommerz/fail`,
-      cancelUrl: `${backendUrl}/api/v1/payments/sslcommerz/cancel`,
-      ipnUrl: `${backendUrl}/api/v1/payments/sslcommerz/ipn`,
-    });
+    try {
+      return await provider.initiatePayment({
+        transaction,
+        customerName: dto.customerName,
+        customerEmail: dto.customerEmail,
+        customerPhone: dto.customerPhone,
+        successUrl: `${backendUrl}/api/v1/payments/sslcommerz/success`,
+        failUrl: `${backendUrl}/api/v1/payments/sslcommerz/fail`,
+        cancelUrl: `${backendUrl}/api/v1/payments/sslcommerz/cancel`,
+        ipnUrl: `${backendUrl}/api/v1/payments/sslcommerz/ipn`,
+      });
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Unknown provider error';
 
-    return result;
+      try {
+        await this.prisma.paymentTransaction.update({
+          where: { id: transaction.id },
+          data: {
+            status: PaymentStatus.FAILED,
+            rawResponse: {
+              stage: 'INITIATE',
+              provider: providerType,
+              reason,
+              failedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (persistError) {
+        // Never let a DB hiccup here mask the original gateway failure.
+        this.logger.error(
+          `Could not mark transaction ${tranId} as FAILED: ${
+            persistError instanceof Error
+              ? persistError.message
+              : 'unknown error'
+          }`,
+        );
+      }
+
+      this.logger.error(
+        `Payment initiation failed for tranId=${tranId} via ${providerType}: ${reason}`,
+      );
+
+      throw new BadGatewayException(
+        'Payment gateway is currently unavailable. Please try again later.',
+      );
+    }
   }
 
   /**
@@ -169,38 +205,59 @@ export class PaymentService {
       }
       // ── End verification ─────────────────────────────────────────────────
 
-      // Atomic: PENDING → VALIDATED + optional admission status, as one DB transaction.
-      // The conditional `where` on status prevents double-processing if a concurrent
-      // request already committed a VALIDATED update.
-      const [updatedTxn] = await this.prisma.$transaction([
-        this.prisma.paymentTransaction.update({
-          where: {
-            id: transaction.id,
-            status: PaymentStatus.PENDING, // guard: only move forward from PENDING
-          },
-          data: {
-            status: PaymentStatus.VALIDATED,
-            valId: validation.valId ?? callbackData.val_id,
-            bankTranId: validation.bankTranId ?? callbackData.bank_tran_id,
-            cardType: validation.cardType ?? callbackData.card_type,
-            cardIssuer: validation.cardIssuer ?? callbackData.card_issuer,
-            rawResponse: (validation.rawResponse ??
-              payload) as Prisma.InputJsonValue,
-            paidAt: new Date(),
-          },
-        }),
-        ...(transaction.purpose === PaymentPurpose.ADMISSION_FEE
-          ? [
-              this.prisma.admissionApplication.updateMany({
-                where: { id: transaction.referenceId },
-                data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
-              }),
-            ]
-          : []),
-      ]);
+      try {
+        const [updatedTxn] = await this.prisma.$transaction([
+          this.prisma.paymentTransaction.update({
+            where: {
+              id: transaction.id,
+              status: PaymentStatus.PENDING, // guard: only move forward from PENDING
+            },
+            data: {
+              status: PaymentStatus.VALIDATED,
+              valId: validation.valId ?? callbackData.val_id,
+              bankTranId: validation.bankTranId ?? callbackData.bank_tran_id,
+              cardType: validation.cardType ?? callbackData.card_type,
+              cardIssuer: validation.cardIssuer ?? callbackData.card_issuer,
+              rawResponse: (validation.rawResponse ??
+                payload) as Prisma.InputJsonValue,
+              paidAt: new Date(),
+            },
+          }),
+          ...(transaction.purpose === PaymentPurpose.ADMISSION_FEE
+            ? [
+                this.prisma.admissionApplication.updateMany({
+                  where: { id: transaction.referenceId },
+                  data: { status: ApplicationStatus.SUBMITTED_FOR_REVIEW },
+                }),
+              ]
+            : []),
+        ]);
 
-      this.logger.log(`Payment transaction ${tranId} VALIDATED successfully.`);
-      return updatedTxn;
+        this.logger.log(
+          `Payment transaction ${tranId} VALIDATED successfully.`,
+        );
+        return updatedTxn;
+      } catch (error) {
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== 'P2025'
+        ) {
+          throw error;
+        }
+
+        const current = await this.prisma.paymentTransaction.findUnique({
+          where: { id: transaction.id },
+        });
+
+        if (current?.status === PaymentStatus.VALIDATED) {
+          this.logger.warn(
+            `Concurrent duplicate callback for tranId=${tranId} — already VALIDATED, treating as success.`,
+          );
+          return current;
+        }
+
+        throw error;
+      }
     } else {
       const failedTxn = await this.prisma.paymentTransaction.update({
         where: { id: transaction.id },

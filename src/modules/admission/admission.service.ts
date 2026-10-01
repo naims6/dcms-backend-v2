@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { RedisService } from '../../redis/redis.service.js';
 import { MailService } from '../mail/mail.service.js';
@@ -34,6 +35,10 @@ export class AdmissionService {
   private readonly ADMISSION_FEE_AMOUNT = 100.0;
   private readonly OTP_TTL_SECONDS = 600; // 10 minutes
 
+  // Suffix alphabet/length for applicationNo and studentId. 36^5 ~= 60M values.
+  private readonly SUFFIX_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  private readonly SUFFIX_LENGTH = 5;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -42,24 +47,19 @@ export class AdmissionService {
     private readonly paymentService: PaymentService,
   ) {}
 
-  /**
-   * Generates formatted unique application number: ADM-YEAR-XXXX
-   */
-  private async generateApplicationNo(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.admissionApplication.count();
-    const sequence = (count + 1).toString().padStart(4, '0');
-    return `ADM-${year}-${sequence}`;
+  private generateApplicationNo(): string {
+    return `ADM-${new Date().getFullYear()}-${this.randomSuffix()}`;
   }
 
-  /**
-   * Generates studentId for auto-enrollment: STU-YEAR-XXXX
-   */
-  private async generateStudentId(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.student.count();
-    const sequence = (count + 1).toString().padStart(4, '0');
-    return `STU-${year}-${sequence}`;
+  private generateStudentId(): string {
+    return `STU-${new Date().getFullYear()}-${this.randomSuffix()}`;
+  }
+  private randomSuffix(): string {
+    let suffix = '';
+    for (let i = 0; i < this.SUFFIX_LENGTH; i++) {
+      suffix += this.SUFFIX_ALPHABET[randomInt(this.SUFFIX_ALPHABET.length)];
+    }
+    return suffix;
   }
 
   /**
@@ -109,7 +109,7 @@ export class AdmissionService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     // 4. Generate Application Number
-    const applicationNo = await this.generateApplicationNo();
+    const applicationNo = this.generateApplicationNo();
 
     // 5. Create DB Record
     const application = await this.prisma.admissionApplication.create({
@@ -550,13 +550,13 @@ export class AdmissionService {
       throw new NotFoundException(`Application ID ${id} not found`);
     }
 
-    if (application.status === ApplicationStatus.ADMITTED) {
+    if (application.status !== ApplicationStatus.SUBMITTED_FOR_REVIEW) {
       throw new BadRequestException(
-        'This application has already been accepted & admitted.',
+        `Cannot admit applicant with status "${application.status}". Application must be in ${ApplicationStatus.SUBMITTED_FOR_REVIEW}.`,
       );
     }
 
-    const studentId = await this.generateStudentId();
+    const studentId = this.generateStudentId();
 
     // Check if user role STUDENT exists
     const studentRole = await this.prisma.role.findFirst({
@@ -565,6 +565,24 @@ export class AdmissionService {
 
     // Execute Prisma Transaction
     const result = await this.prisma.$transaction(async (tx) => {
+      // 0. Verify the admission fee was actually captured before enrolling the student.
+      // Checked inside the transaction so it cannot be invalidated by a concurrent
+      // state change between the check above and the writes below.
+      const validatedPayment = await tx.paymentTransaction.findFirst({
+        where: {
+          purpose: PaymentPurpose.ADMISSION_FEE,
+          referenceId: application.id,
+          status: PaymentStatus.VALIDATED,
+        },
+        select: { id: true },
+      });
+
+      if (!validatedPayment) {
+        throw new BadRequestException(
+          'Cannot admit applicant: no VALIDATED admission fee payment was found for this application.',
+        );
+      }
+
       // 1. Create User Account (using student's hashed password)
       const user = await tx.user.create({
         data: {
@@ -722,9 +740,11 @@ export class AdmissionService {
       throw new NotFoundException(`Application ID ${id} not found`);
     }
 
-    if (application.status === ApplicationStatus.ADMITTED) {
+    // State-machine guard: rejection is a review outcome, so it is only valid from
+    // SUBMITTED_FOR_REVIEW. ADMITTED is terminal and cannot be rejected.
+    if (application.status !== ApplicationStatus.SUBMITTED_FOR_REVIEW) {
       throw new BadRequestException(
-        'Cannot reject an application that has already been admitted.',
+        `Cannot reject applicant with status "${application.status}". Application must be in ${ApplicationStatus.SUBMITTED_FOR_REVIEW}.`,
       );
     }
 
