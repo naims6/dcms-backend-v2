@@ -264,21 +264,33 @@ export class UserService {
       throw new NotFoundException(`User "${userId}" not found`);
     }
 
-    // Delete existing avatar on Cloudinary if present
-    if (user.imageKey) {
-      await this.cloudinary.deleteImage(user.imageKey);
-    }
+    const previousImageKey = user.imageKey;
 
-    // Upload new image
+    // Upload before deleting: the current avatar stays intact and referenced if
+    // the upload or the write below fails.
     const { url, key } = await this.cloudinary.uploadImage(
       fileBuffer,
       'dcms/avatars',
     );
 
-    return this.updateUser(userId, {
-      imageUrl: url,
-      imageKey: key,
-    });
+    let updated: Awaited<ReturnType<typeof this.updateUser>>;
+    try {
+      updated = await this.updateUser(userId, {
+        imageUrl: url,
+        imageKey: key,
+      });
+    } catch (error) {
+      // The new keys were never stored, so reclaim the orphaned upload.
+      await this.cloudinary.deleteImage(key);
+      throw error;
+    }
+
+    // Only once the new keys are durably stored is the old image safe to drop.
+    if (previousImageKey) {
+      await this.cloudinary.deleteImage(previousImageKey);
+    }
+
+    return updated;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

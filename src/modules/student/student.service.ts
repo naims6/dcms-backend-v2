@@ -339,25 +339,34 @@ export class StudentService {
       throw new NotFoundException(`Student "${id}" not found`);
     }
 
-    // Delete existing avatar if present
-    if (student.user?.imageKey) {
-      await this.cloudinary.deleteImage(student.user.imageKey);
-    }
+    const previousImageKey = student.user?.imageKey;
 
-    // Upload new image to Cloudinary
+    // Upload the new image before touching the old one: deleting first would
+    // destroy the current avatar if the upload or the write below fails.
     const uploaded = await this.cloudinary.uploadImage(
       fileBuffer,
       'dcms/avatars',
     );
 
-    // Update User profile
-    await this.prisma.user.update({
-      where: { id: student.userId },
-      data: {
-        imageUrl: uploaded.url,
-        imageKey: uploaded.key,
-      },
-    });
+    try {
+      // Update User profile
+      await this.prisma.user.update({
+        where: { id: student.userId },
+        data: {
+          imageUrl: uploaded.url,
+          imageKey: uploaded.key,
+        },
+      });
+    } catch (error) {
+      // The new keys were never stored, so reclaim the orphaned upload.
+      await this.cloudinary.deleteImage(uploaded.key);
+      throw error;
+    }
+
+    // Only once the new keys are durably stored is the old image safe to drop.
+    if (previousImageKey) {
+      await this.cloudinary.deleteImage(previousImageKey);
+    }
 
     return this.findById(id);
   }
@@ -379,15 +388,14 @@ export class StudentService {
       throw new NotFoundException(`Student "${id}" not found`);
     }
 
-    // Delete Cloudinary image if present
-    if (student.user?.imageKey) {
-      await this.cloudinary.deleteImage(student.user.imageKey);
-    }
-
-    // Deleting the user will cascade delete the student record
     await this.prisma.user.delete({
       where: { id: student.userId },
     });
+
+    // The row is gone, so the asset is now an orphan and safe to reclaim.
+    if (student.user?.imageKey) {
+      await this.cloudinary.deleteImage(student.user.imageKey);
+    }
 
     return { id, message: 'Student deleted successfully' };
   }
@@ -396,14 +404,6 @@ export class StudentService {
   // Private helpers
   // ─────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Replaces a student's guardian set with `guardians` (the full desired set).
-   *
-   * Rows carrying an `id` are updated in place, rows without one are created,
-   * and any existing guardian missing from the payload is deleted. Optional
-   * fields absent from a row are cleared, so the payload always wins.
-   * Must run inside the caller's transaction.
-   */
   private async syncGuardians(
     tx: Prisma.TransactionClient,
     studentId: string,
